@@ -77,13 +77,6 @@ export function GlobalResetCard() {
     [now, snapshot.effectiveAt],
   );
   const timerLabel = `${elapsed.days} days, ${elapsed.hours} hours, ${elapsed.minutes} minutes, ${elapsed.seconds} seconds since the latest global reset signal`;
-  const metrics = [
-    [snapshot.totalRecorded.toString(), "RECORDED"],
-    [snapshot.recordedLast30Days.toString(), "LAST 30 DAYS"],
-    [`${snapshot.averageIntervalDays}d`, "AVG. GAP"],
-    [`${snapshot.longestIntervalDays}d`, "LONGEST GAP"],
-  ];
-
   return (
     <section
       className="global-reset-card"
@@ -121,15 +114,6 @@ export function GlobalResetCard() {
           <b>Public signal, not your account timer.</b>
           <span>SCOPE / {snapshot.scope}</span>
         </aside>
-      </div>
-
-      <div className="global-reset-metrics" aria-label="Global reset history summary">
-        {metrics.map(([value, label]) => (
-          <div key={label}>
-            <strong>{value}</strong>
-            <span>{label}</span>
-          </div>
-        ))}
       </div>
 
       <div className="global-reset-source">

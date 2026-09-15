@@ -25,4 +25,15 @@ describe("site readability", () => {
     expect(ruleFor(".button-primary")).toMatch(/color:\s*var\(--ink\)/);
     expect(ruleFor(".text-button")).toMatch(/color:\s*var\(--ink\)/);
   });
+
+  it("keeps the desktop homepage hero and reset signal within a compact fold budget", () => {
+    expect(ruleFor(".site-header")).toMatch(/height:\s*68px/);
+    expect(ruleFor(".home-intro")).toMatch(/padding-block:\s*40px 24px/);
+    expect(ruleFor(".home-intro h1")).toMatch(
+      /font-size:\s*clamp\(48px,\s*5\.3vw,\s*72px\)/,
+    );
+    expect(ruleFor(".global-reset-primary")).toMatch(
+      /padding:\s*17px 20px 15px/,
+    );
+  });
 });

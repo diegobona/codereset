@@ -62,10 +62,13 @@ describe("HomePage", () => {
     })).toBeInTheDocument();
     expect(within(signal).getByText(/public signal, not your account timer/i)).toBeInTheDocument();
     expect(within(signal).getAllByTestId("global-reset-unit")).toHaveLength(4);
-    expect(within(signal).getByText("48", { exact: true })).toBeInTheDocument();
-    expect(within(signal).getByText("7", { exact: true })).toBeInTheDocument();
-    expect(within(signal).getByText("7.7d", { exact: true })).toBeInTheDocument();
-    expect(within(signal).getByText("67.7d", { exact: true })).toBeInTheDocument();
+    expect(
+      within(signal).queryByLabelText("Global reset history summary"),
+    ).not.toBeInTheDocument();
+    expect(within(signal).queryByText("RECORDED", { exact: true }))
+      .not.toBeInTheDocument();
+    expect(within(signal).queryByText("LONGEST GAP", { exact: true }))
+      .not.toBeInTheDocument();
     expect(within(signal).getByRole("link", { name: /data from codexreset.dev/i })).toHaveAttribute(
       "href",
       "https://codexreset.dev/events/cr-2098685367058612394",
