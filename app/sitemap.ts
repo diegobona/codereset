@@ -1,17 +1,14 @@
 import type { MetadataRoute } from "next";
-import { guides } from "@/lib/content";
+import { publishedRoutes } from "@/lib/content/route-manifest";
+import { absoluteUrl } from "@/lib/seo/metadata";
 
 export const dynamic = "force-static";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const lastModified = new Date("2026-09-15T00:00:00.000Z");
-  return [
-    { url: "https://codereset.dev", lastModified, changeFrequency: "daily", priority: 1 },
-    ...guides.map((guide) => ({
-      url: `https://codereset.dev/guides/${guide.slug}`,
-      lastModified,
-      changeFrequency: "monthly" as const,
-      priority: 0.75,
-    })),
-  ];
+  return publishedRoutes.map((route) => ({
+    url: absoluteUrl(route.pathname),
+    lastModified: new Date(`${route.lastModified}T00:00:00.000Z`),
+    changeFrequency: route.kind === "home" ? "daily" : "monthly",
+    priority: route.kind === "home" ? 1 : 0.75,
+  }));
 }

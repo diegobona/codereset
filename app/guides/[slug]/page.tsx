@@ -3,15 +3,20 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { BrandMark } from "@/components/icons";
-import { getGuide, guides } from "@/lib/content";
+import { getGuide } from "@/lib/content";
+import { publishedRoutes } from "@/lib/content/route-manifest";
 import { absoluteUrl, buildMetadata } from "@/lib/seo/metadata";
 import { articleSchema, breadcrumbSchema, faqSchema } from "@/lib/seo/schema";
 
 type GuidePageProps = { params: Promise<{ slug: string }> };
 
 export function generateStaticParams() {
-  return guides.map((guide) => ({ slug: guide.slug }));
+  return publishedRoutes.flatMap((route) =>
+    route.kind === "guide" && route.slug ? [{ slug: route.slug }] : [],
+  );
 }
+
+export const dynamicParams = false;
 
 export async function generateMetadata({ params }: GuidePageProps): Promise<Metadata> {
   const { slug } = await params;

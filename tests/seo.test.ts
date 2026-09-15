@@ -1,8 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ReactNode } from "react";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { spawnSync } from "node:child_process";
 
 type JsonLd = {
   "@type"?: string;
@@ -41,6 +50,97 @@ async function loadHomeMetadata() {
 }
 
 afterEach(() => vi.unstubAllEnvs());
+
+const fixtureDirectories: string[] = [];
+
+afterEach(() => {
+  for (const directory of fixtureDirectories.splice(0)) {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+function fixturePage({
+  pathname,
+  title,
+  description,
+  canonical = `https://codereset.dev${pathname}`,
+  links = [],
+  robots,
+  ogImage = "https://codereset.dev/og.png",
+  h1Count = 1,
+  jsonLd = '{"@context":"https://schema.org","@type":"WebPage"}',
+}: {
+  pathname: string;
+  title: string;
+  description: string | null;
+  canonical?: string | null;
+  links?: string[];
+  robots?: string;
+  ogImage?: string | null;
+  h1Count?: number;
+  jsonLd?: string;
+}) {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <title>${title}</title>
+    ${description ? `<meta name="description" content="${description}">` : ""}
+    ${canonical ? `<link rel="canonical" href="${canonical}">` : ""}
+    ${robots ? `<meta name="robots" content="${robots}">` : ""}
+    ${ogImage ? `<meta property="og:image" content="${ogImage}">` : ""}
+  </head>
+  <body>
+    ${Array.from({ length: h1Count }, () => `<h1>${title}</h1>`).join("\n")}
+    ${links.map((href) => `<a href="${href}">Link</a>`).join("\n")}
+    <script type="application/ld+json">${jsonLd}</script>
+  </body>
+</html>`;
+}
+
+function createExportFixture({
+  pages,
+  sitemapPaths,
+}: {
+  pages: Array<{
+    file: string;
+    pathname: string;
+    title: string;
+    description: string | null;
+    canonical?: string | null;
+    links?: string[];
+    robots?: string;
+    ogImage?: string | null;
+    h1Count?: number;
+    jsonLd?: string;
+  }>;
+  sitemapPaths: string[];
+}) {
+  const directory = mkdtempSync(join(tmpdir(), "codereset-seo-"));
+  fixtureDirectories.push(directory);
+  writeFileSync(join(directory, "og.png"), "fixture");
+
+  for (const page of pages) {
+    const path = join(directory, page.file);
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, fixturePage(page));
+  }
+
+  writeFileSync(
+    join(directory, "sitemap.xml"),
+    `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${sitemapPaths
+      .map((pathname) => `<url><loc>https://codereset.dev${pathname}</loc></url>`)
+      .join("")}</urlset>`,
+  );
+  return directory;
+}
+
+function runExportValidator(directory: string) {
+  return spawnSync(
+    process.execPath,
+    [join(process.cwd(), "scripts", "validate-export.mjs"), directory],
+    { encoding: "utf8" },
+  );
+}
 
 describe("absoluteUrl", () => {
   it("normalizes site-relative paths against the canonical origin", async () => {
@@ -322,5 +422,239 @@ describe("route metadata", () => {
 
     expect(metadata.metadataBase).toEqual(new URL("https://codereset.dev"));
     expect(metadata).not.toHaveProperty("alternates.canonical");
+  });
+});
+
+describe("published route manifest", () => {
+  it("matches the sitemap in both directions without duplicate URLs", async () => {
+    const manifestPath = join(
+      process.cwd(),
+      "lib",
+      "content",
+      "route-manifest.ts",
+    );
+    expect(existsSync(manifestPath)).toBe(true);
+
+    const [{ publishedRoutes }, { default: sitemap }, { absoluteUrl }] =
+      await Promise.all([
+        import("@/lib/content/route-manifest"),
+        import("@/app/sitemap"),
+        import("@/lib/seo/metadata"),
+      ]);
+    const manifestUrls = publishedRoutes.map((route) =>
+      absoluteUrl(route.pathname),
+    );
+    const sitemapUrls = sitemap().map((entry) => entry.url);
+
+    expect(new Set(manifestUrls).size).toBe(manifestUrls.length);
+    expect(new Set(sitemapUrls).size).toBe(sitemapUrls.length);
+    expect(new Set(sitemapUrls)).toEqual(new Set(manifestUrls));
+  });
+
+  it("is the source of truth for closed guide static params", async () => {
+    vi.resetModules();
+    vi.doMock("@/lib/content/route-manifest", () => ({
+      publishedRoutes: [
+        {
+          pathname: "/guides/manifest-only",
+          kind: "guide",
+          slug: "manifest-only",
+          lastModified: "2026-09-15",
+          indexable: true,
+        },
+      ],
+    }));
+
+    try {
+      const guidePage = await import("@/app/guides/[slug]/page");
+      expect(guidePage.generateStaticParams()).toEqual([
+        { slug: "manifest-only" },
+      ]);
+      expect(guidePage.dynamicParams).toBe(false);
+    } finally {
+      vi.doUnmock("@/lib/content/route-manifest");
+      vi.resetModules();
+    }
+  });
+});
+
+describe("static export SEO validator", () => {
+  const home = {
+    file: "index.html",
+    pathname: "/",
+    title: "CodeReset home",
+    description: "Private Codex quota reset tracking from your own usage data.",
+    links: ["/guides/weekly-limit#answer"],
+  };
+  const guide = {
+    file: "guides/weekly-limit.html",
+    pathname: "/guides/weekly-limit",
+    title: "Codex weekly reset guide",
+    description: "Find the account-specific weekly reset timestamp shown by Codex.",
+    links: ["/"],
+  };
+
+  it("accepts index.html and nested path.html exports with local resources", () => {
+    const fixture = createExportFixture({
+      pages: [home, guide],
+      sitemapPaths: ["/", "/guides/weekly-limit"],
+    });
+
+    const result = runExportValidator(fixture);
+
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+  });
+
+  it("rejects duplicate page titles", () => {
+    const fixture = createExportFixture({
+      pages: [home, { ...guide, title: home.title }],
+      sitemapPaths: ["/", "/guides/weekly-limit"],
+    });
+
+    const result = runExportValidator(fixture);
+
+    expect(result.status).toBe(1);
+    expect(`${result.stdout}\n${result.stderr}`).toMatch(/duplicate title/i);
+  });
+
+  it("rejects duplicate page descriptions", () => {
+    const fixture = createExportFixture({
+      pages: [home, { ...guide, description: home.description }],
+      sitemapPaths: ["/", "/guides/weekly-limit"],
+    });
+
+    const result = runExportValidator(fixture);
+
+    expect(result.status).toBe(1);
+    expect(`${result.stdout}\n${result.stderr}`).toMatch(/duplicate description/i);
+  });
+
+  it("rejects an indexable page without a canonical URL", () => {
+    const fixture = createExportFixture({
+      pages: [{ ...home, canonical: null }],
+      sitemapPaths: ["/"],
+    });
+
+    const result = runExportValidator(fixture);
+
+    expect(result.status).toBe(1);
+    expect(`${result.stdout}\n${result.stderr}`).toMatch(/canonical/i);
+  });
+
+  it("rejects a canonical URL that does not match the exported route", () => {
+    const fixture = createExportFixture({
+      pages: [
+        {
+          ...home,
+          canonical: "https://codereset.dev/guides/weekly-limit",
+        },
+      ],
+      sitemapPaths: ["/"],
+    });
+
+    const result = runExportValidator(fixture);
+
+    expect(result.status).toBe(1);
+    expect(`${result.stdout}\n${result.stderr}`).toMatch(/canonical.*does not match/i);
+  });
+
+  it("rejects an indexable page without exactly one H1", () => {
+    const fixture = createExportFixture({
+      pages: [{ ...home, h1Count: 0 }],
+      sitemapPaths: ["/"],
+    });
+
+    const result = runExportValidator(fixture);
+
+    expect(result.status).toBe(1);
+    expect(`${result.stdout}\n${result.stderr}`).toMatch(/exactly one H1/i);
+  });
+
+  it("rejects an indexable page without an Open Graph image", () => {
+    const fixture = createExportFixture({
+      pages: [{ ...home, ogImage: null }],
+      sitemapPaths: ["/"],
+    });
+
+    const result = runExportValidator(fixture);
+
+    expect(result.status).toBe(1);
+    expect(`${result.stdout}\n${result.stderr}`).toMatch(/Open Graph image/i);
+  });
+
+  it("rejects malformed JSON-LD", () => {
+    const fixture = createExportFixture({
+      pages: [{ ...home, jsonLd: "{" }],
+      sitemapPaths: ["/"],
+    });
+
+    const result = runExportValidator(fixture);
+
+    expect(result.status).toBe(1);
+    expect(`${result.stdout}\n${result.stderr}`).toMatch(/invalid JSON-LD/i);
+  });
+
+  it("rejects a broken internal link", () => {
+    const fixture = createExportFixture({
+      pages: [{ ...home, links: ["/missing-page"] }],
+      sitemapPaths: ["/"],
+    });
+
+    const result = runExportValidator(fixture);
+
+    expect(result.status).toBe(1);
+    expect(`${result.stdout}\n${result.stderr}`).toMatch(/broken internal link/i);
+  });
+
+  it("rejects a sitemap URL without a matching static page", () => {
+    const fixture = createExportFixture({
+      pages: [home],
+      sitemapPaths: ["/", "/missing-page"],
+    });
+
+    const result = runExportValidator(fixture);
+
+    expect(result.status).toBe(1);
+    expect(`${result.stdout}\n${result.stderr}`).toMatch(
+      /sitemap URL has no static HTML/i,
+    );
+  });
+
+  it("rejects a noindex static page included in the sitemap", () => {
+    const fixture = createExportFixture({
+      pages: [{ ...home, robots: "noindex, follow" }],
+      sitemapPaths: ["/"],
+    });
+
+    const result = runExportValidator(fixture);
+
+    expect(result.status).toBe(1);
+    expect(`${result.stdout}\n${result.stderr}`).toMatch(/sitemap.*noindex/i);
+  });
+
+  it("rejects duplicate normalized URLs in the sitemap", () => {
+    const fixture = createExportFixture({
+      pages: [home],
+      sitemapPaths: ["/", "/"],
+    });
+
+    const result = runExportValidator(fixture);
+
+    expect(result.status).toBe(1);
+    expect(`${result.stdout}\n${result.stderr}`).toMatch(/duplicate sitemap URL/i);
+  });
+
+  it("rejects an indexable static page missing from the sitemap", () => {
+    const fixture = createExportFixture({
+      pages: [home, guide],
+      sitemapPaths: ["/"],
+    });
+
+    const result = runExportValidator(fixture);
+
+    expect(result.status).toBe(1);
+    expect(`${result.stdout}\n${result.stderr}`).toMatch(
+      /indexable HTML is missing from sitemap/i,
+    );
   });
 });
