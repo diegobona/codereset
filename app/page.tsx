@@ -20,7 +20,6 @@ import { SHOW_ALERT_OFFER } from "@/lib/features";
 import { absoluteUrl, buildMetadata } from "@/lib/seo/metadata";
 import {
   faqSchema,
-  softwareApplicationSchema,
   websiteSchema,
 } from "@/lib/seo/schema";
 import { SITE } from "@/lib/site";
@@ -83,7 +82,6 @@ const resetTypes = [
 export default function HomePage() {
   const structuredData = [
     websiteSchema(),
-    softwareApplicationSchema(),
     faqSchema(faqs),
   ];
 

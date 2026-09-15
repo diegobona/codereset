@@ -68,10 +68,8 @@ describe("absoluteUrl", () => {
 });
 
 describe("structured data builders", () => {
-  it("builds the site and application entities from canonical site facts", async () => {
-    const { softwareApplicationSchema, websiteSchema } = await import(
-      "@/lib/seo/schema"
-    );
+  it("builds the site entity from canonical site facts", async () => {
+    const { websiteSchema } = await import("@/lib/seo/schema");
 
     expect(websiteSchema()).toEqual({
       "@context": "https://schema.org",
@@ -81,14 +79,6 @@ describe("structured data builders", () => {
       description:
         "A private Codex quota countdown, reset signal radar, and practical field guide for AI coding limits.",
       inLanguage: "en",
-    });
-    expect(softwareApplicationSchema()).toMatchObject({
-      "@context": "https://schema.org",
-      "@type": "SoftwareApplication",
-      name: "CodeReset",
-      url: "https://codereset.dev/",
-      applicationCategory: "DeveloperApplication",
-      operatingSystem: "Any",
     });
   });
 
@@ -171,9 +161,14 @@ describe("structured data builders", () => {
 
     expect(entities.map((entity) => entity["@type"])).toEqual([
       "WebSite",
-      "SoftwareApplication",
       "FAQPage",
     ]);
+    expect(entities).not.toContainEqual(
+      expect.objectContaining({ "@type": "SoftwareApplication" }),
+    );
+    expect(JSON.stringify(entities)).not.toMatch(
+      /"(?:aggregateRating|review)":/,
+    );
     expect(homepageFaq).toMatchObject({
       mainEntity: faqs.map(({ question, answer }) => ({
         "@type": "Question",

@@ -29,23 +29,6 @@ export function websiteSchema() {
   };
 }
 
-export function softwareApplicationSchema() {
-  return {
-    "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    name: SITE.name,
-    url: absoluteUrl("/"),
-    description: SITE.description,
-    applicationCategory: "DeveloperApplication",
-    operatingSystem: "Any",
-    featureList: [
-      "Private Codex quota countdowns",
-      "Separate five-hour and weekly quota tracking",
-      "Calendar reminder export",
-    ],
-  };
-}
-
 export function articleSchema({
   title,
   description,
