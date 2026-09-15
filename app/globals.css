@@ -281,6 +281,11 @@ footer { background: #090a09; color: white; padding-top: 75px; }
 .guide-header { grid-template-columns: 1fr auto; }
 .guide-back { display: inline-flex; align-items: center; gap: 8px; font: 700 11px/1 var(--mono); text-transform: uppercase; }
 .guide-hero { padding-block: 100px 72px; border-bottom: 1px solid var(--ink); }
+.guide-breadcrumb { display: block; margin-bottom: 34px; }
+.guide-breadcrumb ol { display: flex; flex-wrap: wrap; gap: 9px; margin: 0; padding: 0; list-style: none; color: var(--muted); font: 700 10px/1.4 var(--mono); letter-spacing: .07em; text-transform: uppercase; }
+.guide-breadcrumb li:not(:last-child)::after { content: "/"; margin-left: 9px; color: var(--signal-dark); }
+.guide-breadcrumb a:hover { text-decoration: underline; }
+.guide-breadcrumb [aria-current="page"] { color: var(--ink); }
 .guide-hero h1 { max-width: 980px; font-size: clamp(52px, 7.8vw, 104px); }
 .guide-hero > p { max-width: 720px; color: var(--muted); font-size: 19px; line-height: 1.6; margin: 34px 0; }
 .guide-meta { display: flex; gap: 28px; color: var(--muted); font: 700 10px/1 var(--mono); letter-spacing: .08em; }

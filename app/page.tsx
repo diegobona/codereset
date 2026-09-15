@@ -17,7 +17,12 @@ import { BrandMark, Crosshair } from "@/components/icons";
 import { ResetDesk } from "@/components/reset-desk";
 import { faqs, guidePreviews, previewSignals } from "@/lib/content";
 import { SHOW_ALERT_OFFER } from "@/lib/features";
-import { buildMetadata } from "@/lib/seo/metadata";
+import { absoluteUrl, buildMetadata } from "@/lib/seo/metadata";
+import {
+  faqSchema,
+  softwareApplicationSchema,
+  websiteSchema,
+} from "@/lib/seo/schema";
 import { SITE } from "@/lib/site";
 
 export const metadata: Metadata = buildMetadata({
@@ -29,11 +34,25 @@ export const metadata: Metadata = buildMetadata({
     type: "website",
     title: SITE.openGraphTitle,
     description: SITE.openGraphDescription,
+    images: [
+      {
+        url: absoluteUrl("/og-default.png"),
+        width: 1200,
+        height: 630,
+        alt: "CodeReset private Codex quota countdown",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: SITE.twitterTitle,
     description: SITE.twitterDescription,
+    images: [
+      {
+        url: absoluteUrl("/og-default.png"),
+        alt: "CodeReset private Codex quota countdown",
+      },
+    ],
   },
 });
 
@@ -62,8 +81,23 @@ const resetTypes = [
 ];
 
 export default function HomePage() {
+  const structuredData = [
+    websiteSchema(),
+    softwareApplicationSchema(),
+    faqSchema(faqs),
+  ];
+
   return (
     <main>
+      {structuredData.map((schema) => (
+        <script
+          key={schema["@type"]}
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(schema).replace(/</g, "\\u003c"),
+          }}
+        />
+      ))}
       <header className="site-header shell">
         <Link className="brand" href="/" aria-label="CodeReset home">
           <BrandMark className="brand-mark" />

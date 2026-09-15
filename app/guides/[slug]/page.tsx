@@ -4,7 +4,8 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { BrandMark } from "@/components/icons";
 import { getGuide, guides } from "@/lib/content";
-import { buildMetadata } from "@/lib/seo/metadata";
+import { absoluteUrl, buildMetadata } from "@/lib/seo/metadata";
+import { articleSchema, breadcrumbSchema, faqSchema } from "@/lib/seo/schema";
 
 type GuidePageProps = { params: Promise<{ slug: string }> };
 
@@ -21,7 +22,25 @@ export async function generateMetadata({ params }: GuidePageProps): Promise<Meta
     path: `/guides/${guide.slug}`,
     title: guide.title,
     description: guide.description,
-    openGraph: { type: "article" },
+    openGraph: {
+      type: "article",
+      images: [
+        {
+          url: absoluteUrl("/og-guides.png"),
+          width: 1200,
+          height: 630,
+          alt: "CodeReset field manual for Codex usage limits",
+        },
+      ],
+    },
+    twitter: {
+      images: [
+        {
+          url: absoluteUrl("/og-guides.png"),
+          alt: "CodeReset field manual for Codex usage limits",
+        },
+      ],
+    },
   });
 }
 
@@ -31,32 +50,33 @@ export default async function GuidePage({ params }: GuidePageProps) {
   if (!guide) notFound();
 
   const relatedGuides = guide.related.map((relatedSlug) => getGuide(relatedSlug)).filter(Boolean);
-  const structuredData = {
-    "@context": "https://schema.org",
-    "@graph": [
-      {
-        "@type": "Article",
-        headline: guide.title,
-        description: guide.description,
-        dateModified: guide.lastReviewed,
-        author: { "@type": "Organization", name: "CodeReset" },
-        publisher: { "@type": "Organization", name: "CodeReset" },
-        mainEntityOfPage: `https://codereset.dev/guides/${guide.slug}`,
-      },
-      {
-        "@type": "FAQPage",
-        mainEntity: guide.faqs.map((faq) => ({
-          "@type": "Question",
-          name: faq.question,
-          acceptedAnswer: { "@type": "Answer", text: faq.answer },
-        })),
-      },
-    ],
-  };
+  const guidePath = `/guides/${guide.slug}`;
+  const structuredData = [
+    articleSchema({
+      title: guide.title,
+      description: guide.description,
+      path: guidePath,
+      dateModified: guide.lastReviewed,
+    }),
+    faqSchema(guide.faqs),
+    breadcrumbSchema([
+      { name: "Home", path: "/" },
+      { name: "Field manual", path: "/#field-manual" },
+      { name: guide.title, path: guidePath },
+    ]),
+  ];
 
   return (
     <main className="guide-page">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
+      {structuredData.map((schema) => (
+        <script
+          key={schema["@type"]}
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(schema).replace(/</g, "\\u003c"),
+          }}
+        />
+      ))}
       <header className="site-header shell guide-header">
         <Link className="brand" href="/" aria-label="CodeReset home">
           <BrandMark className="brand-mark" /><span>CodeReset</span><span className="brand-suffix">.dev</span>
@@ -66,6 +86,13 @@ export default async function GuidePage({ params }: GuidePageProps) {
 
       <article>
         <header className="guide-hero shell">
+          <nav className="guide-breadcrumb" aria-label="Breadcrumb">
+            <ol>
+              <li><Link href="/">Home</Link></li>
+              <li><Link href="/#field-manual">Field manual</Link></li>
+              <li><span aria-current="page">{guide.title}</span></li>
+            </ol>
+          </nav>
           <span className="section-index">{guide.eyebrow}</span>
           <h1>{guide.title}</h1>
           <p>{guide.description}</p>
