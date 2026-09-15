@@ -122,6 +122,32 @@ Weekly limit: 41% left · resets 2099-09-20T09:00:00Z`,
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  it("explains when Codex has not loaded limit data yet", () => {
+    render(<ResetDesk />);
+
+    fireEvent.change(screen.getByLabelText("Paste Codex status"), {
+      target: { value: "Limits: data not available yet" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Parse status" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Codex has not loaded your limits yet. Wait a moment and run /status again.",
+    );
+  });
+
+  it("identifies a recognized window that is missing its reset time", () => {
+    render(<ResetDesk />);
+
+    fireEvent.change(screen.getByLabelText("Paste Codex status"), {
+      target: { value: "5h limit: 73% left" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Parse status" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "We found a quota percentage, but not a usable reset time.",
+    );
+  });
+
   it("accepts a manual five-hour window", async () => {
     render(<ResetDesk />);
 

@@ -5,6 +5,7 @@ import {
   getPaceState,
   parseResetTimestamp,
   parseUsageStatus,
+  parseUsageStatusDetailed,
 } from "@/lib/reset";
 
 describe("parseUsageStatus", () => {
@@ -47,6 +48,95 @@ Weekly limit: 41% left · resets 2026-09-20T09:00:00+08:00`);
     expect(
       parseUsageStatus("5h limit: 999% left · resets 2026-09-20T09:00:00Z"),
     ).toEqual({});
+  });
+
+  it("parses copied Codex panels with ANSI styling, borders, and progress bars", () => {
+    const result = parseUsageStatus(
+      "\u001b[2m│  5h limit: [██████░░] 73% left (resets 2099-09-15T18:30:00Z) │\u001b[22m",
+    );
+
+    expect(result.shortWindow).toEqual({
+      remainingPercent: 73,
+      resetAt: "2099-09-15T18:30:00.000Z",
+    });
+  });
+
+  it("converts a used percentage into the remaining percentage", () => {
+    const result = parseUsageStatus(
+      "7-day limit: 63% used · resets 2099-09-20T09:00:00Z",
+    );
+
+    expect(result.weeklyWindow?.remainingPercent).toBe(37);
+  });
+
+  it("parses a quota window split across multiple copied lines", () => {
+    const result = parseUsageStatus(`Weekly limit
+[████████░░] 41% remaining
+resets at 2099-09-20T09:00:00Z`);
+
+    expect(result.weeklyWindow).toEqual({
+      remainingPercent: 41,
+      resetAt: "2099-09-20T09:00:00.000Z",
+    });
+  });
+
+  it("parses the compact time and date shown by Codex", () => {
+    const now = new Date(2026, 8, 15, 10, 0, 0);
+    const result = parseUsageStatus(
+      "Weekly limit: 41% left (resets 7:30 PM on 20 Sep)",
+      now,
+    );
+
+    expect(result.weeklyWindow?.remainingPercent).toBe(41);
+    const resetAt = new Date(result.weeklyWindow!.resetAt);
+    expect([
+      resetAt.getFullYear(),
+      resetAt.getMonth(),
+      resetAt.getDate(),
+      resetAt.getHours(),
+      resetAt.getMinutes(),
+    ]).toEqual([2026, 8, 20, 19, 30]);
+  });
+
+  it("treats a time-only reset as the next occurrence in local time", () => {
+    const now = new Date(2026, 8, 15, 19, 0, 0);
+    const result = parseUsageStatus(
+      "5h limit: 73% left (resets 6:30 PM)",
+      now,
+    );
+
+    const resetAt = new Date(result.shortWindow!.resetAt);
+    expect([
+      resetAt.getFullYear(),
+      resetAt.getMonth(),
+      resetAt.getDate(),
+      resetAt.getHours(),
+      resetAt.getMinutes(),
+    ]).toEqual([2026, 8, 16, 18, 30]);
+  });
+
+  it("parses a relative reset countdown", () => {
+    const now = new Date("2026-09-15T10:00:00.000Z");
+    const result = parseUsageStatus(
+      "5-hour limit: 73% remaining · resets in 2h 30m",
+      now,
+    );
+
+    expect(result.shortWindow?.resetAt).toBe("2026-09-15T12:30:00.000Z");
+  });
+
+  it("reports when Codex has not loaded limit data yet", () => {
+    expect(parseUsageStatusDetailed("Limits: data not available yet")).toEqual({
+      issue: "limits-unavailable",
+      usage: {},
+    });
+  });
+
+  it("reports a missing reset time after recognizing a quota percentage", () => {
+    expect(parseUsageStatusDetailed("5h limit: 73% left")).toEqual({
+      issue: "missing-reset-time",
+      usage: {},
+    });
   });
 });
 

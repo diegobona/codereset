@@ -8,6 +8,17 @@ export type ParsedUsage = {
   weeklyWindow?: UsageWindow;
 };
 
+export type UsageParseIssue =
+  | "limits-unavailable"
+  | "missing-percentage"
+  | "missing-reset-time"
+  | "unsupported-format";
+
+export type UsageParseResult = {
+  usage: ParsedUsage;
+  issue?: UsageParseIssue;
+};
+
 export type PaceState = "ahead" | "steady" | "at-risk";
 
 export type ResetTimeConversion = {
@@ -173,14 +184,97 @@ export function convertResetTime(
   }
 }
 
-function parseWindow(line: string): UsageWindow | undefined {
-  const percentMatch = line.match(/(\d{1,3}(?:\.\d+)?)\s*%\s*(?:left|remaining)?/i);
-  const resetMatch = line.match(/resets?\s+(?:at\s+)?(.+)$/i);
+const ansiCsiPattern = /\u001B\[[0-?]*[ -/]*[@-~]/g;
+const ansiOscPattern = /\u001B\][^\u0007]*(?:\u0007|\u001B\\)/g;
+const windowLabelPattern = /\b(?:5h|5-hour|five-hour|weekly|7d|7-day)\b/i;
+
+function normalizeStatusInput(input: string) {
+  return input
+    .replace(ansiOscPattern, "")
+    .replace(ansiCsiPattern, "")
+    .split(/\r?\n/)
+    .map((line) => line.replace(/[│┃║]/g, " ").replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+}
+
+function parseClock(hourText: string, minuteText: string, meridiem?: string) {
+  const minute = Number(minuteText);
+  let hour = Number(hourText);
+  if (minute > 59 || hour > (meridiem ? 12 : 23)) return undefined;
+  if (meridiem) {
+    hour %= 12;
+    if (meridiem.toLowerCase() === "pm") hour += 12;
+  }
+  return { hour, minute };
+}
+
+function parseCompactResetTimestamp(value: string, now: Date) {
+  const compact = value
+    .trim()
+    .replace(/^\(+/, "")
+    .replace(/[)\]}.;,]+$/g, "")
+    .trim();
+  const relative = compact.match(
+    /^in\s+(?:(\d+(?:\.\d+)?)\s*d(?:ay(?:s)?)?\s*)?(?:(\d+(?:\.\d+)?)\s*h(?:our(?:s)?)?\s*)?(?:(\d+(?:\.\d+)?)\s*m(?:in(?:ute)?s?)?\s*)?$/i,
+  );
+  if (relative) {
+    const durationMs = (
+      Number(relative[1] ?? 0) * 24 * 60 +
+      Number(relative[2] ?? 0) * 60 +
+      Number(relative[3] ?? 0)
+    ) * 60 * 1_000;
+    if (Number.isFinite(durationMs) && durationMs > 0) {
+      return new Date(now.getTime() + durationMs);
+    }
+  }
+  const absolute = parseResetTimestamp(compact);
+  if (absolute) return absolute;
+
+  const datedTime = compact.match(
+    /^(\d{1,2}):(\d{2})\s*(AM|PM)?\s+on\s+(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*(?:\s+(\d{4}))?$/i,
+  );
+  if (datedTime) {
+    const [, hourText, minuteText, meridiem, dayText, monthText, yearText] = datedTime;
+    const clock = parseClock(hourText, minuteText, meridiem);
+    const month = monthIndexes.get(monthText.slice(0, 3).toLowerCase());
+    if (!clock || month === undefined) return undefined;
+
+    let year = yearText ? Number(yearText) : now.getFullYear();
+    let date = new Date(year, month, Number(dayText), clock.hour, clock.minute, 0, 0);
+    if (!yearText && date.getTime() <= now.getTime()) {
+      year += 1;
+      date = new Date(year, month, Number(dayText), clock.hour, clock.minute, 0, 0);
+    }
+    if (
+      date.getFullYear() !== year ||
+      date.getMonth() !== month ||
+      date.getDate() !== Number(dayText)
+    ) return undefined;
+    return date;
+  }
+
+  const timeOnly = compact.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+  if (!timeOnly) return undefined;
+  const clock = parseClock(timeOnly[1], timeOnly[2], timeOnly[3]);
+  if (!clock) return undefined;
+  const date = new Date(now);
+  date.setHours(clock.hour, clock.minute, 0, 0);
+  if (date.getTime() <= now.getTime()) date.setDate(date.getDate() + 1);
+  return date;
+}
+
+function parseWindow(block: string, now: Date): UsageWindow | undefined {
+  const percentMatch = block.match(/(\d{1,3}(?:\.\d+)?)\s*%\s*(left|remaining|used|consumed)?/i);
+  const resetMatch = block.match(/resets?\s*(?:at\s+)?[:=-]?\s*(.+)$/i);
 
   if (!percentMatch || !resetMatch) return undefined;
 
-  const remainingPercent = Number(percentMatch[1]);
-  const parsedDate = parseResetTimestamp(resetMatch[1]);
+  const reportedPercent = Number(percentMatch[1]);
+  const qualifier = percentMatch[2]?.toLowerCase();
+  const remainingPercent = qualifier === "used" || qualifier === "consumed"
+    ? 100 - reportedPercent
+    : reportedPercent;
+  const parsedDate = parseCompactResetTimestamp(resetMatch[1], now);
   if (!parsedDate || !Number.isFinite(remainingPercent) || remainingPercent < 0 || remainingPercent > 100) return undefined;
 
   return {
@@ -189,24 +283,58 @@ function parseWindow(line: string): UsageWindow | undefined {
   };
 }
 
-export function parseUsageStatus(input: string): ParsedUsage {
+function detectWindowKind(line: string) {
+  if (/\b(?:5h|5-hour|five-hour)\b/i.test(line)) return "short" as const;
+  if (/\b(?:weekly|7d|7-day)\b/i.test(line)) return "weekly" as const;
+  return undefined;
+}
+
+function parseUsageBlocks(input: string, now: Date) {
   const result: ParsedUsage = {};
+  const blocks: Array<{ kind: "short" | "weekly"; text: string }> = [];
+  let active: (typeof blocks)[number] | undefined;
 
-  for (const line of input.split(/\r?\n/).map((item) => item.trim())) {
-    if (!line) continue;
-
-    if (/\b(?:5h|5-hour|five-hour)\b/i.test(line)) {
-      const window = parseWindow(line);
-      if (window) result.shortWindow = window;
-    }
-
-    if (/\b(?:weekly|7d|7-day)\b/i.test(line)) {
-      const window = parseWindow(line);
-      if (window) result.weeklyWindow = window;
+  for (const line of normalizeStatusInput(input)) {
+    const kind = detectWindowKind(line);
+    if (kind) {
+      active = { kind, text: line };
+      blocks.push(active);
+    } else if (active && !parseWindow(active.text, now)) {
+      active.text += ` ${line}`;
     }
   }
 
-  return result;
+  for (const block of blocks) {
+    const window = parseWindow(block.text, now);
+    if (block.kind === "short" && window) result.shortWindow = window;
+    if (block.kind === "weekly" && window) result.weeklyWindow = window;
+  }
+
+  return { blocks, result };
+}
+
+export function parseUsageStatusDetailed(
+  input: string,
+  now = new Date(),
+): UsageParseResult {
+  const normalized = normalizeStatusInput(input).join(" ");
+  const { blocks, result: usage } = parseUsageBlocks(input, now);
+  if (usage.shortWindow || usage.weeklyWindow) return { usage };
+
+  if (/\blimits?\b[^\n]*(?:data\s+)?(?:not available|unavailable|loading)/i.test(normalized)) {
+    return { issue: "limits-unavailable", usage };
+  }
+  if (blocks.length > 0 && /\d{1,3}(?:\.\d+)?\s*%/.test(normalized)) {
+    return { issue: "missing-reset-time", usage };
+  }
+  if (blocks.length > 0 || windowLabelPattern.test(normalized)) {
+    return { issue: "missing-percentage", usage };
+  }
+  return { issue: "unsupported-format", usage };
+}
+
+export function parseUsageStatus(input: string, now = new Date()): ParsedUsage {
+  return parseUsageStatusDetailed(input, now).usage;
 }
 
 export function formatCountdown(target: Date, now = new Date()) {

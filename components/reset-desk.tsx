@@ -14,7 +14,7 @@ import {
   createCalendarEvent,
   formatCountdown,
   getPaceState,
-  parseUsageStatus,
+  parseUsageStatusDetailed,
   type ParsedUsage,
   type UsageWindow,
 } from "@/lib/reset";
@@ -222,9 +222,16 @@ export function ResetDesk() {
   function handleParse() {
     trackEvent("desk_start", { page: "home" });
     trackEvent("parser_attempt", { page: "home" });
-    const parsed = parseUsageStatus(statusText);
+    const parseResult = parseUsageStatusDetailed(statusText);
+    const parsed = parseResult.usage;
     if (!parsed.shortWindow && !parsed.weeklyWindow) {
-      setError("We could not find a supported quota window.");
+      const parseErrors = {
+        "limits-unavailable": "Codex has not loaded your limits yet. Wait a moment and run /status again.",
+        "missing-percentage": "We found a quota window, but not a usable percentage.",
+        "missing-reset-time": "We found a quota percentage, but not a usable reset time.",
+        "unsupported-format": "We could not find a supported quota window.",
+      } as const;
+      setError(parseErrors[parseResult.issue ?? "unsupported-format"]);
       setMessage("");
       return;
     }
