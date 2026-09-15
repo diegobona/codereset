@@ -338,6 +338,42 @@ footer { background: #090a09; color: white; padding-top: 75px; }
 .privacy-controls p { margin-top: 0; }
 .privacy-controls button { min-height: 44px; border: 1px solid var(--ink); background: var(--ink); color: white; padding: 0 15px; cursor: pointer; font: 700 11px/1 var(--mono); text-transform: uppercase; }
 
+.source-box { scroll-margin-top: 30px; margin-top: 70px; border-top: 1px solid var(--ink); padding-top: 38px; min-width: 0; }
+.source-box-heading h2 { font-family: var(--sans); text-transform: none; letter-spacing: -.045em; font-size: clamp(31px,4vw,47px); margin: 14px 0 12px; }
+.source-box-heading p { color: var(--muted); line-height: 1.65; max-width: 680px; }
+.source-claims { display: grid; gap: 14px; margin-top: 28px; min-width: 0; }
+.source-claim { border: 1px solid var(--ink); padding: 22px; min-width: 0; background: #fff; }
+.source-claim-status { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px 16px; }
+.source-claim-status strong { padding: 6px 8px; background: var(--ink); color: white; font: 800 10px/1 var(--mono); text-transform: lowercase; }
+.source-claim[data-fact-status="official"] .source-claim-status strong { background: var(--signal-dark); }
+.source-claim[data-fact-status="unknown"] .source-claim-status strong { background: var(--orange); color: var(--ink); }
+.source-claim-status span { color: var(--muted); font: 650 11px/1.4 var(--mono); }
+.source-claim > p { margin: 18px 0; color: #32352f; font-size: 15px; line-height: 1.65; }
+.source-claim dl { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; margin: 0 0 18px; }
+.source-claim dl > div { border-top: 1px solid var(--line); padding-top: 10px; }
+.source-claim dt { color: var(--muted); font: 700 9px/1 var(--mono); text-transform: uppercase; letter-spacing: .09em; }
+.source-claim dd { margin: 7px 0 0; font: 700 11px/1.4 var(--mono); }
+.source-claim ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; min-width: 0; }
+.source-claim li { display: grid; grid-template-columns: minmax(90px,auto) minmax(0,1fr); gap: 12px; align-items: baseline; min-width: 0; }
+.source-claim li a, .source-claim li strong { font: 800 11px/1.4 var(--mono); }
+.source-claim li a { text-decoration: underline; }
+.source-claim li span { color: var(--muted); font: 10px/1.5 var(--mono); overflow-wrap: anywhere; min-width: 0; }
+.source-policy-links { color: var(--muted); font-size: 13px; line-height: 1.6; margin: 20px 0 0; }
+.source-policy-links a { color: var(--ink); font-weight: 750; text-decoration: underline; }
+
+.trust-header { min-height: 82px; height: auto; gap: 30px; }
+.trust-navigation { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 20px; font: 700 10px/1.3 var(--mono); text-transform: uppercase; }
+.trust-navigation a:hover, .trust-document a:hover { text-decoration: underline; }
+.trust-document { padding-block: 70px 110px; max-width: 940px; }
+.trust-document section { border-top: 1px solid var(--ink); padding: 34px 0 46px; }
+.trust-document h2 { font-family: var(--sans); text-transform: none; letter-spacing: -.045em; font-size: clamp(30px,4vw,45px); }
+.trust-document p, .trust-document li, .trust-document dd { color: #41443e; font-size: 16px; line-height: 1.7; }
+.trust-document a { font-weight: 750; text-decoration: underline; }
+.status-definitions { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.status-definitions > div { border: 1px solid var(--ink); padding: 20px; min-width: 0; }
+.status-definitions dt { font: 800 11px/1 var(--mono); text-transform: lowercase; }
+.status-definitions dd { margin: 12px 0 0; }
+
 @media (max-width: 760px) {
   .guide-hero { padding-block: 70px 55px; }
   .guide-body { grid-template-columns: 1fr; gap: 35px; padding-block: 45px 75px; }
@@ -346,4 +382,12 @@ footer { background: #090a09; color: white; padding-top: 75px; }
   .guide-footer > div { align-items: flex-start; flex-direction: column; }
   .privacy-document { grid-template-columns: 1fr; gap: 50px; padding-block: 45px 75px; }
   .privacy-summary { position: static; }
+  .guide-meta { align-items: flex-start; flex-direction: column; gap: 10px; }
+  .guide-body aside { max-height: none; overflow: visible; }
+  .source-claim { padding: 18px; }
+  .source-claim dl, .source-claim li, .status-definitions { grid-template-columns: 1fr; }
+  .source-claim li { gap: 4px; }
+  .trust-header { align-items: flex-start; padding-block: 18px; }
+  .trust-navigation { justify-content: flex-end; gap: 10px 14px; max-width: 210px; }
+  .trust-document { padding-block: 45px 75px; }
 }

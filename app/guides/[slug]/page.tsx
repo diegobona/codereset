@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ArrowRight, Check } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+import { ArticleLayout } from "@/components/article/article-layout";
 import { AnalyticsBootstrap, GuideDeskLink } from "@/components/analytics-client";
 import { BrandMark } from "@/components/icons";
 import { getGuide } from "@/lib/content";
@@ -55,7 +56,10 @@ export default async function GuidePage({ params }: GuidePageProps) {
   const guide = getGuide(slug);
   if (!guide) notFound();
 
-  const relatedGuides = guide.related.map((relatedSlug) => getGuide(relatedSlug)).filter(Boolean);
+  const relatedGuides = guide.related.flatMap((relatedSlug) => {
+    const relatedGuide = getGuide(relatedSlug);
+    return relatedGuide ? [relatedGuide] : [];
+  });
   const guidePath = `/guides/${guide.slug}`;
   const structuredData = [
     articleSchema({
@@ -91,52 +95,7 @@ export default async function GuidePage({ params }: GuidePageProps) {
         <Link className="guide-back" href="/#field-manual"><ArrowLeft size={15} /> All field notes</Link>
       </header>
 
-      <article>
-        <header className="guide-hero shell">
-          <nav className="guide-breadcrumb" aria-label="Breadcrumb">
-            <ol>
-              <li><Link href="/">Home</Link></li>
-              <li><Link href="/#field-manual">Field manual</Link></li>
-              <li><span aria-current="page">{guide.title}</span></li>
-            </ol>
-          </nav>
-          <span className="section-index">{guide.eyebrow}</span>
-          <h1>{guide.title}</h1>
-          <p>{guide.description}</p>
-          <div className="guide-meta"><span>LAST REVIEWED / {guide.lastReviewed}</span><span>INDEPENDENT GUIDE</span></div>
-        </header>
-
-        <div className="guide-body shell">
-          <aside>
-            <span>ON THIS PAGE</span>
-            {guide.sections.map((section, index) => <a href={`#section-${index + 1}`} key={section.heading}>{String(index + 1).padStart(2, "0")} — {section.heading}</a>)}
-            <a href="#faq">FAQ</a>
-          </aside>
-          <div className="guide-content">
-            <section className="quick-answer">
-              <span>QUICK ANSWER</span>
-              <p>{guide.answer}</p>
-            </section>
-            {guide.sections.map((section, index) => (
-              <section className="article-section" id={`section-${index + 1}`} key={section.heading}>
-                <span>{String(index + 1).padStart(2, "0")}</span>
-                <h2>{section.heading}</h2>
-                {section.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
-                {section.bullets && <ul>{section.bullets.map((bullet) => <li key={bullet}><Check size={16} /> {bullet}</li>)}</ul>}
-              </section>
-            ))}
-            <section className="guide-faq" id="faq">
-              <span className="section-index">FAQ</span>
-              {guide.faqs.map((faq) => <details key={faq.question}><summary>{faq.question}<b>+</b></summary><p>{faq.answer}</p></details>)}
-            </section>
-          </div>
-        </div>
-      </article>
-
-      <section className="related-guides shell">
-        <span className="section-index">KEEP READING</span>
-        <div>{relatedGuides.map((related) => related && <Link href={`/guides/${related.slug}`} key={related.slug}><span>{related.eyebrow}</span><strong>{related.title}</strong><ArrowRight size={18} /></Link>)}</div>
-      </section>
+      <ArticleLayout guide={guide} relatedGuides={relatedGuides} />
       <footer className="guide-footer"><div className="shell"><p>CodeReset is not affiliated with OpenAI. Always verify account-specific quota information in Codex.</p><GuideDeskLink /></div></footer>
     </main>
   );

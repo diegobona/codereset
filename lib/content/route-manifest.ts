@@ -2,7 +2,7 @@ import { guides } from "@/lib/content";
 
 export type PublishedRoute = {
   pathname: string;
-  kind: "home" | "guide" | "privacy";
+  kind: "home" | "guide" | "privacy" | "trust";
   slug: string | null;
   lastModified: string;
   indexable: boolean;
@@ -23,6 +23,15 @@ const routeCandidates: PublishedRoute[] = [
     lastModified: "2026-09-15",
     indexable: true,
   },
+  ...(["/about", "/methodology", "/corrections"] as const).map(
+    (pathname) => ({
+      pathname,
+      kind: "trust" as const,
+      slug: null,
+      lastModified: "2026-09-15",
+      indexable: true,
+    }),
+  ),
   ...guides.map((guide) => ({
     pathname: `/guides/${guide.slug}`,
     kind: "guide" as const,
@@ -74,6 +83,16 @@ function validatePublishedRoutes(routes: PublishedRoute[]) {
         throw new Error(
           "The privacy route must use pathname /privacy and a null slug",
         );
+      }
+      continue;
+    }
+
+    if (route.kind === "trust") {
+      if (
+        !["/about", "/methodology", "/corrections"].includes(route.pathname) ||
+        route.slug !== null
+      ) {
+        throw new Error(`Invalid trust route: ${route.pathname}`);
       }
       continue;
     }
