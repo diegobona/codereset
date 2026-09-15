@@ -1,0 +1,18 @@
+[
+  {
+    "id": "openai-codex-pricing",
+    "publisher": "OpenAI",
+    "tier": 1,
+    "checkedAt": "2026-09-15",
+    "evidenceType": "web-page",
+    "url": "https://learn.chatgpt.com/docs/pricing"
+  },
+  {
+    "id": "openai-codex-cli",
+    "publisher": "OpenAI",
+    "tier": 1,
+    "checkedAt": "2026-09-15",
+    "evidenceType": "web-page",
+    "url": "https://learn.chatgpt.com/docs/codex/cli"
+  }
+]
