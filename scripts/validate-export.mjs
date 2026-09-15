@@ -260,6 +260,7 @@ function validateFragmentTarget({ sourceRoute, rawHref, url, targetPage, errors 
     return;
   }
   if (!fragment) return;
+  if (/^[tT][oO][pP]$/.test(fragment)) return;
 
   const hasId = targetPage.document.getElementById(fragment) !== null;
   const hasNamedAnchor = Array.from(

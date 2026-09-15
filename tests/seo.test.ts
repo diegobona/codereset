@@ -685,6 +685,43 @@ describe("static export SEO validator", () => {
     expect(`${result.stdout}\n${result.stderr}`).toMatch(/invalid fragment/i);
   });
 
+  it("accepts the special same-page #top fragment without a matching ID", () => {
+    const fixture = createExportFixture({
+      pages: [{ ...home, links: ["#top"] }],
+      sitemapPaths: ["/"],
+    });
+
+    const result = runExportValidator(fixture);
+
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+  });
+
+  it("accepts the special cross-page #TOP fragment without a matching ID", () => {
+    const fixture = createExportFixture({
+      pages: [
+        { ...home, links: ["/guides/weekly-limit#TOP"] },
+        guide,
+      ],
+      sitemapPaths: ["/", "/guides/weekly-limit"],
+    });
+
+    const result = runExportValidator(fixture);
+
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+  });
+
+  it("does not treat a fragment with whitespace as the special top target", () => {
+    const fixture = createExportFixture({
+      pages: [{ ...home, links: ["#top%20"] }],
+      sitemapPaths: ["/"],
+    });
+
+    const result = runExportValidator(fixture);
+
+    expect(result.status).toBe(1);
+    expect(`${result.stdout}\n${result.stderr}`).toMatch(/broken fragment/i);
+  });
+
   it("rejects a sitemap URL without a matching static page", () => {
     const fixture = createExportFixture({
       pages: [home],
