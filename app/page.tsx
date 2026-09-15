@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import {
   ArrowDownRight,
@@ -16,6 +17,25 @@ import { BrandMark, Crosshair } from "@/components/icons";
 import { ResetDesk } from "@/components/reset-desk";
 import { faqs, guidePreviews, previewSignals } from "@/lib/content";
 import { SHOW_ALERT_OFFER } from "@/lib/features";
+import { buildMetadata } from "@/lib/seo/metadata";
+import { SITE } from "@/lib/site";
+
+export const metadata: Metadata = buildMetadata({
+  path: "/",
+  title: SITE.title,
+  description: SITE.description,
+  absoluteTitle: true,
+  openGraph: {
+    type: "website",
+    title: SITE.openGraphTitle,
+    description: SITE.openGraphDescription,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE.twitterTitle,
+    description: SITE.twitterDescription,
+  },
+});
 
 const resetTypes = [
   {

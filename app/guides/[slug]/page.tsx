@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { BrandMark } from "@/components/icons";
 import { getGuide, guides } from "@/lib/content";
+import { buildMetadata } from "@/lib/seo/metadata";
 
 type GuidePageProps = { params: Promise<{ slug: string }> };
 
@@ -16,12 +17,12 @@ export async function generateMetadata({ params }: GuidePageProps): Promise<Meta
   const guide = getGuide(slug);
   if (!guide) return {};
 
-  return {
+  return buildMetadata({
+    path: `/guides/${guide.slug}`,
     title: guide.title,
     description: guide.description,
-    alternates: { canonical: `/guides/${guide.slug}` },
-    openGraph: { title: guide.title, description: guide.description, type: "article" },
-  };
+    openGraph: { type: "article" },
+  });
 }
 
 export default async function GuidePage({ params }: GuidePageProps) {

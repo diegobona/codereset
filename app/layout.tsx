@@ -1,34 +1,17 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import { SITE } from "@/lib/site";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://codereset.dev"),
+  metadataBase: new URL(SITE.origin),
   title: {
-    default: "CodeReset — Know when your Codex quota resets",
-    template: "%s · CodeReset",
+    default: SITE.title,
+    template: SITE.titleTemplate,
   },
-  description:
-    "A private Codex quota countdown, reset signal radar, and practical field guide for AI coding limits.",
-  applicationName: "CodeReset",
-  keywords: [
-    "Codex reset",
-    "Codex usage limit",
-    "Codex weekly limit",
-    "AI quota tracker",
-  ],
-  openGraph: {
-    type: "website",
-    url: "https://codereset.dev",
-    siteName: "CodeReset",
-    title: "CodeReset — Know exactly when you can ship again",
-    description: "Private quota countdowns and public reset signal tracking for Codex users.",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "CodeReset",
-    description: "Know exactly when you can ship again.",
-  },
+  description: SITE.description,
+  applicationName: SITE.name,
+  keywords: [...SITE.keywords],
 };
 
 export const viewport: Viewport = {
@@ -38,7 +21,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="en">
+    <html lang={SITE.language}>
       <body>{children}</body>
     </html>
   );
