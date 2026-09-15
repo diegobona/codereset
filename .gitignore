@@ -35,5 +35,8 @@ next-env.d.ts
 Thumbs.db
 *.swp
 
+# Local Git worktrees
+/.worktrees/
+
 # Certificates and private keys
 *.pem
