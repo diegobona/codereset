@@ -6,12 +6,13 @@ export const SITE = {
   title: "CodeReset — Know when your Codex quota resets",
   titleTemplate: "%s · CodeReset",
   description:
-    "A private Codex quota countdown, reset signal radar, and practical field guide for AI coding limits.",
-  openGraphTitle: "CodeReset — Know exactly when you can ship again",
+    "Paste your Codex /status to see your five-hour and weekly reset countdowns and add a calendar reminder.",
+  openGraphTitle: "When does my Codex limit reset? — CodeReset",
   openGraphDescription:
-    "Private quota countdowns and public reset signal tracking for Codex users.",
-  twitterTitle: "CodeReset",
-  twitterDescription: "Know exactly when you can ship again.",
+    "Paste your Codex /status to see a private reset countdown and add a calendar reminder.",
+  twitterTitle: "When does my Codex limit reset?",
+  twitterDescription:
+    "Paste your Codex /status to see a private reset countdown and add a calendar reminder.",
   keywords: [
     "Codex reset",
     "Codex usage limit",

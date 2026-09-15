@@ -185,7 +185,7 @@ describe("structured data builders", () => {
       name: "CodeReset",
       url: "https://codereset.dev/",
       description:
-        "A private Codex quota countdown, reset signal radar, and practical field guide for AI coding limits.",
+        "Paste your Codex /status to see your five-hour and weekly reset countdowns and add a calendar reminder.",
       inLanguage: "en",
     });
   });
@@ -258,36 +258,21 @@ describe("structured data builders", () => {
     });
   });
 
-  it("renders homepage entities from the same FAQ copy visitors can read", async () => {
-    const [{ default: HomePage }, { faqs }] = await Promise.all([
-      import("@/app/page"),
-      import("@/lib/content"),
-    ]);
+  it("does not publish FAQ structured data after removing the homepage FAQ", async () => {
+    const { default: HomePage } = await import("@/app/page");
     const page = renderedDocument(HomePage());
     const entities = jsonLdEntities(page);
-    const homepageFaq = entities.find((entity) => entity["@type"] === "FAQPage");
 
-    expect(entities.map((entity) => entity["@type"])).toEqual([
-      "WebSite",
-      "FAQPage",
-    ]);
+    expect(entities.map((entity) => entity["@type"])).toEqual(["WebSite"]);
     expect(entities).not.toContainEqual(
       expect.objectContaining({ "@type": "SoftwareApplication" }),
+    );
+    expect(entities).not.toContainEqual(
+      expect.objectContaining({ "@type": "FAQPage" }),
     );
     expect(JSON.stringify(entities)).not.toMatch(
       /"(?:aggregateRating|review)":/,
     );
-    expect(homepageFaq).toMatchObject({
-      mainEntity: faqs.map(({ question, answer }) => ({
-        "@type": "Question",
-        name: question,
-        acceptedAnswer: { "@type": "Answer", text: answer },
-      })),
-    });
-    for (const { question, answer } of faqs) {
-      expect(page.body.textContent).toContain(question);
-      expect(page.body.textContent).toContain(answer);
-    }
   });
 
   it("renders guide entities plus visible breadcrumbs from the current guide", async () => {
@@ -322,8 +307,14 @@ describe("structured data builders", () => {
         acceptedAnswer: { "@type": "Answer", text: answer },
       })),
     });
+    expect(entities.find((entity) => entity["@type"] === "BreadcrumbList")).toMatchObject({
+      itemListElement: [
+        expect.objectContaining({ position: 1, name: "Home" }),
+        expect.objectContaining({ position: 2, name: guide.title }),
+      ],
+    });
     expect(breadcrumbs?.textContent).toContain("Home");
-    expect(breadcrumbs?.textContent).toContain("Field manual");
+    expect(breadcrumbs?.textContent).not.toContain("Field manual");
     expect(breadcrumbs?.textContent).toContain(guide.title);
   });
 

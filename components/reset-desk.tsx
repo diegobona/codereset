@@ -25,6 +25,8 @@ const STORAGE_EVENT = "codereset:quota-change";
 let volatileQuotaSnapshot = "";
 const SAMPLE_STATUS = `5h limit: 73% left · resets 2026-09-15T18:30:00+08:00
 Weekly limit: 41% left · resets 2026-09-20T09:00:00+08:00`;
+const REMINDER_OPTIONS = [5, 15, 30] as const;
+type ReminderMinutes = (typeof REMINDER_OPTIONS)[number];
 
 type ManualState = {
   shortRemaining: string;
@@ -131,8 +133,9 @@ function WindowCard({
   kind: "5-hour" | "weekly";
   window: UsageWindow;
   now: Date;
-  onCalendar: () => void;
+  onCalendar: (reminderMinutes: ReminderMinutes) => void;
 }) {
+  const [reminderMinutes, setReminderMinutes] = useState<ReminderMinutes>(5);
   const resetAt = new Date(window.resetAt);
   const countdown = formatCountdown(resetAt, now);
   const pace = getPaceState({
@@ -153,7 +156,7 @@ function WindowCard({
         <b data-pace={pace}>{pace.replace("-", " ")}</b>
       </div>
       <div className="window-countdown">
-        <span>TIME TO RECOVERY</span>
+        <span>RESETS IN</span>
         <strong>{countdown.label}</strong>
         <small>{readableDate}</small>
       </div>
@@ -161,9 +164,24 @@ function WindowCard({
         <div><span>REMAINING</span><strong>{window.remainingPercent}%</strong></div>
         <div className="window-meter"><i style={{ width: `${window.remainingPercent}%` }} /></div>
       </div>
-      <button className="calendar-button" type="button" onClick={onCalendar}>
-        <CalendarPlus size={15} /> Add 5-minute reminder
-      </button>
+      <div className="calendar-controls">
+        <select
+          aria-label={`${kind} reminder time`}
+          value={reminderMinutes}
+          onChange={(event) => setReminderMinutes(Number(event.target.value) as ReminderMinutes)}
+        >
+          {REMINDER_OPTIONS.map((minutes) => (
+            <option key={minutes} value={minutes}>{minutes} min before</option>
+          ))}
+        </select>
+        <button
+          className="calendar-button"
+          type="button"
+          onClick={() => onCalendar(reminderMinutes)}
+        >
+          <CalendarPlus size={15} /> Add {reminderMinutes}-minute reminder
+        </button>
+      </div>
     </article>
   );
 }
@@ -206,13 +224,20 @@ export function ResetDesk() {
     trackEvent("parser_attempt", { page: "home" });
     const parsed = parseUsageStatus(statusText);
     if (!parsed.shortWindow && !parsed.weeklyWindow) {
-      setError("We could not find a supported quota window. Try the sample or enter it manually.");
+      setError("We could not find a supported quota window.");
       setMessage("");
       return;
     }
     trackEvent("parser_success", { page: "home" });
     trackEvent("desk_complete", { page: "home" });
     saveUsage(parsed);
+  }
+
+  function openManualSetup() {
+    trackEvent("desk_start", { page: "home" });
+    trackEvent("manual_setup_start", { page: "home" });
+    setMode("manual");
+    setError("");
   }
 
   function handleManualSave() {
@@ -239,10 +264,14 @@ export function ResetDesk() {
     setError("");
   }
 
-  function downloadReminder(window: UsageWindow, title: string) {
+  function downloadReminder(
+    window: UsageWindow,
+    title: string,
+    reminderMinutes: ReminderMinutes,
+  ) {
     trackEvent("ics_download", { page: "home" });
     const file = new Blob([
-      createCalendarEvent({ resetAt: new Date(window.resetAt), title, reminderMinutes: 5 }),
+      createCalendarEvent({ resetAt: new Date(window.resetAt), title, reminderMinutes }),
     ], { type: "text/calendar;charset=utf-8" });
     const url = URL.createObjectURL(file);
     const anchor = document.createElement("a");
@@ -255,21 +284,20 @@ export function ResetDesk() {
   return (
     <div className="reset-desk-app">
       <div className="desk-toolbar">
-        <div className="desk-tabs" aria-label="Quota setup method">
-          <button type="button" aria-pressed={mode === "paste"} onClick={() => setMode("paste")}>
-            <ClipboardPaste size={15} /> Paste status
-          </button>
-          <button
-            type="button"
-            aria-pressed={mode === "manual"}
-            onClick={() => {
-              trackEvent("desk_start", { page: "home" });
-              trackEvent("manual_setup_start", { page: "home" });
-              setMode("manual");
-            }}
-          >
-            <Gauge size={15} /> Manual setup
-          </button>
+        <div className="desk-toolbar-main">
+          <h2 id="personal-quota-title">My personal quota</h2>
+          <div className="desk-tabs" aria-label="Quota setup method">
+            <button type="button" aria-pressed={mode === "paste"} onClick={() => setMode("paste")}>
+              <ClipboardPaste size={15} /> Paste status
+            </button>
+            <button
+              type="button"
+              aria-pressed={mode === "manual"}
+              onClick={openManualSetup}
+            >
+              <Gauge size={15} /> Manual setup
+            </button>
+          </div>
         </div>
         <span><ShieldCheck size={15} /> LOCAL / {localZone}</span>
       </div>
@@ -278,11 +306,15 @@ export function ResetDesk() {
         {mode === "paste" ? (
           <div className="paste-panel">
             <label htmlFor="status-input">Paste Codex status</label>
+            <p className="paste-help" id="status-input-help">
+              Run <code>/status</code> in Codex, then paste the result here.
+            </p>
             <textarea
               id="status-input"
               value={statusText}
               onChange={(event) => setStatusText(event.target.value)}
-              placeholder="Paste the lines showing your 5h and weekly remaining percentages and reset times…"
+              placeholder="Paste your Codex /status output"
+              aria-describedby="status-input-help"
               rows={5}
             />
             <div className="desk-form-actions">
@@ -314,7 +346,12 @@ export function ResetDesk() {
           </div>
         )}
         {message && <p className="desk-message" role="status"><CheckCircle2 size={15} /> {message}</p>}
-        {error && <p className="desk-error" role="alert">{error}</p>}
+        {error && (
+          <div className="desk-error" role="alert">
+            <span>{error}</span>
+            <button type="button" onClick={openManualSetup}>Use manual setup</button>
+          </div>
+        )}
       </div>
 
       {hasUsage ? (
@@ -325,21 +362,15 @@ export function ResetDesk() {
           </div>
           <div className="window-card-grid">
             {usage.shortWindow && (
-              <WindowCard kind="5-hour" window={usage.shortWindow} now={now} onCalendar={() => downloadReminder(usage.shortWindow!, "Codex 5-hour reset")} />
+              <WindowCard kind="5-hour" window={usage.shortWindow} now={now} onCalendar={(minutes) => downloadReminder(usage.shortWindow!, "Codex 5-hour reset", minutes)} />
             )}
             {usage.weeklyWindow && (
-              <WindowCard kind="weekly" window={usage.weeklyWindow} now={now} onCalendar={() => downloadReminder(usage.weeklyWindow!, "Codex weekly reset")} />
+              <WindowCard kind="weekly" window={usage.weeklyWindow} now={now} onCalendar={(minutes) => downloadReminder(usage.weeklyWindow!, "Codex weekly reset", minutes)} />
             )}
           </div>
           <p className="result-disclaimer"><Bell size={14} /> A finished countdown is a reminder to check Codex. It cannot confirm that your quota recovered.</p>
         </div>
-      ) : (
-        <div className="empty-results">
-          <span>WAITING FOR YOUR INPUT</span>
-          <strong>— — : — — : — —</strong>
-          <p>Your five-hour and weekly windows will appear here.</p>
-        </div>
-      )}
+      ) : null}
     </div>
   );
 }

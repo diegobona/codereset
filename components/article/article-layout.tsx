@@ -18,7 +18,6 @@ export function ArticleLayout({
           <Breadcrumbs
             items={[
               { label: "Home", href: "/" },
-              { label: "Field manual", href: "/#field-manual" },
               { label: guide.title },
             ]}
           />

@@ -33,24 +33,5 @@ export function AlertOffer({ enabled }: AlertOfferProps) {
     );
   }
 
-  return (
-    <section className="alerts-section" id="alerts" aria-labelledby="alerts-title">
-      <div className="shell alerts-grid">
-        <div>
-          <span className="section-index light">06 / COMING LATER</span>
-          <h2 id="alerts-title">Alerts are planned<br /><em>for later.</em></h2>
-          <p>CodeReset does not offer alert delivery today. We are validating the concept before opening access.</p>
-        </div>
-        <div className="price-card">
-          <div className="price-head"><BellRing size={25} /><span>ALERTS ROADMAP</span></div>
-          <ul>
-            <li><Check size={16} /> Source verification is still being developed</li>
-            <li><Check size={16} /> Delivery options will be announced after validation</li>
-            <li><Check size={16} /> No sign-up or payment collection</li>
-          </ul>
-          <small>For now, use your local countdown and the clearly labeled product preview.</small>
-        </div>
-      </div>
-    </section>
-  );
+  return null;
 }

@@ -28,67 +28,125 @@ function loadTrustPage(moduleName: string): Promise<TrustPageModule> {
 }
 
 describe("HomePage", () => {
-  it("leads with a clear quota reset promise", async () => {
-    const HomePage = await loadHomePage();
-    render(<HomePage />);
-
-    expect(
-      screen.getByRole("heading", { name: /know exactly when you can ship again/i }),
-    ).toBeInTheDocument();
-  });
-
-  it("explains the private local tracking model", async () => {
-    const HomePage = await loadHomePage();
-    render(<HomePage />);
-
-    expect(
-      screen.getByRole("heading", { name: /your quota stays on your device/i }),
-    ).toBeInTheDocument();
-  });
-
-  it("distinguishes personal windows from public reset events", async () => {
-    const HomePage = await loadHomePage();
-    render(<HomePage />);
-
-    expect(screen.getByText("Your quota window", { exact: true })).toBeInTheDocument();
-    expect(screen.getByText("Public reset event", { exact: true })).toBeInTheDocument();
-  });
-
-  it("discloses that the product is independent", async () => {
-    const HomePage = await loadHomePage();
-    render(<HomePage />);
-
-    expect(screen.getByText(/not affiliated with openai/i)).toBeInTheDocument();
-  });
-
-  it("keeps the unvalidated alert offer out of the default homepage", async () => {
+  it("leads with the visitor's reset question and the real reset desk", async () => {
     const HomePage = await loadHomePage();
     const { container } = render(<HomePage />);
 
-    expect(container.querySelector("#alerts")).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: /alerts are planned for later/i }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /alert roadmap/i })).toHaveAttribute(
+    expect(screen.getByRole("heading", {
+      level: 1,
+      name: /when does my codex limit reset/i,
+    })).toBeInTheDocument();
+    expect(screen.getByLabelText("Paste Codex status")).toBeInTheDocument();
+    expect(container.querySelector(".console-wrap")).toBeNull();
+  });
+
+  it("clearly labels the personal quota workspace", async () => {
+    const HomePage = await loadHomePage();
+    render(<HomePage />);
+
+    const personalQuota = screen.getByRole("region", { name: "My personal quota" });
+    expect(within(personalQuota).getByRole("heading", {
+      level: 2,
+      name: "My personal quota",
+    })).toBeInTheDocument();
+  });
+
+  it("shows a compact public global reset signal without confusing it with account quota", async () => {
+    const HomePage = await loadHomePage();
+    render(<HomePage />);
+
+    const signal = screen.getByRole("region", { name: /latest global reset signal/i });
+    expect(within(signal).getByRole("heading", {
+      level: 2,
+      name: /time since the last global reset/i,
+    })).toBeInTheDocument();
+    expect(within(signal).getByText(/public signal, not your account timer/i)).toBeInTheDocument();
+    expect(within(signal).getAllByTestId("global-reset-unit")).toHaveLength(4);
+    expect(within(signal).getByText("48", { exact: true })).toBeInTheDocument();
+    expect(within(signal).getByText("7", { exact: true })).toBeInTheDocument();
+    expect(within(signal).getByText("7.7d", { exact: true })).toBeInTheDocument();
+    expect(within(signal).getByText("67.7d", { exact: true })).toBeInTheDocument();
+    expect(within(signal).getByRole("link", { name: /data from codexreset.dev/i })).toHaveAttribute(
       "href",
-      "#alerts",
+      "https://codexreset.dev/events/cr-2098685367058612394",
     );
+  });
+
+  it("shows today's signal state and when the source feed was last checked", async () => {
+    const HomePage = await loadHomePage();
+    render(<HomePage />);
+
+    const signal = screen.getByRole("region", { name: /latest global reset signal/i });
+    expect(within(signal).getByText("TODAY / UNKNOWN", { exact: true })).toBeInTheDocument();
+    expect(within(signal).getByText(/last checked.*sep 15, 2026.*08:32 utc/i)).toBeInTheDocument();
+  });
+
+  it("shows the latest event scope and links to both the record and original evidence", async () => {
+    const HomePage = await loadHomePage();
+    render(<HomePage />);
+
+    const signal = screen.getByRole("region", { name: /latest global reset signal/i });
+    expect(within(signal).getByText(/scope.*accounts specified in the original announcement/i))
+      .toBeInTheDocument();
+    expect(within(signal).getByText("ARCHIVED RECORD", { exact: true })).toBeInTheDocument();
+    expect(within(signal).getByRole("link", { name: /original post/i })).toHaveAttribute(
+      "href",
+      "https://x.com/thsottiaux/status/2098685367058612394",
+    );
+    expect(within(signal).getByRole("link", { name: /data from codexreset.dev/i })).toHaveAttribute(
+      "href",
+      "https://codexreset.dev/events/cr-2098685367058612394",
+    );
+  });
+
+  it("removes nonessential previews, explainers, alerts, and FAQ from the default homepage", async () => {
+    const HomePage = await loadHomePage();
+    const { container } = render(<HomePage />);
+
+    expect(container.querySelector(".ticker")).toBeNull();
+    expect(container.querySelector("#how-it-works")).toBeNull();
+    expect(container.querySelector(".privacy-section")).toBeNull();
+    expect(container.querySelector("#signal-log")).toBeNull();
+    expect(container.querySelector("#field-manual")).toBeNull();
+    expect(container.querySelector(".faq-section")).toBeNull();
+    expect(container.querySelector("#alerts")).toBeNull();
     expect(container).not.toHaveTextContent("$9");
     expect(container).not.toHaveTextContent(/\bSMS\b/i);
-    expect(container).not.toHaveTextContent(/get reset alerts/i);
-    expect(container).not.toHaveTextContent(/verified global reset alerts/i);
-    expect(container.querySelector('a[href^="mailto:"], form')).toBeNull();
-    expect(screen.getByText("PRODUCT PREVIEW", { exact: true })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Common questions" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /how to check codex usage/i })).toHaveAttribute(
+      "href",
+      "/guides/check-codex-usage",
+    );
+    expect(screen.getByRole("link", { name: /when does the 5-hour limit reset/i })).toHaveAttribute(
+      "href",
+      "/guides/5-hour-limit",
+    );
+    expect(screen.getByRole("link", { name: /when does the weekly limit reset/i })).toHaveAttribute(
+      "href",
+      "/guides/weekly-limit",
+    );
+    expect(screen.getByRole("link", { name: /what are banked resets/i })).toHaveAttribute(
+      "href",
+      "/guides/banked-resets",
+    );
+  });
+
+  it("uses a compact footer without affiliation, trademark, or marketing copy", async () => {
+    const HomePage = await loadHomePage();
+    const { container } = render(<HomePage />);
+
+    expect(screen.getByRole("link", { name: "Privacy" })).toHaveAttribute("href", "/privacy");
+    expect(screen.getByRole("link", { name: "About" })).toHaveAttribute("href", "/about");
+    expect(container).not.toHaveTextContent(/independent project/i);
+    expect(container).not.toHaveTextContent(/not affiliated with openai/i);
+    expect(container).not.toHaveTextContent(/trademarks of their respective owners/i);
+    expect(container).not.toHaveTextContent(/people who ship with ai/i);
   });
 
   it("renders the early-access offer when the build flag is enabled", async () => {
     const HomePage = await loadHomePage(true);
     render(<HomePage />);
 
-    expect(screen.getByRole("link", { name: /get reset alerts/i })).toHaveAttribute(
-      "href",
-      "#alerts",
-    );
     expect(screen.getByText("$9", { exact: true })).toBeInTheDocument();
     expect(screen.getByText("Email + SMS delivery", { exact: true })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /join early access/i })).toBeInTheDocument();
@@ -96,15 +154,12 @@ describe("HomePage", () => {
 });
 
 describe("AlertOffer", () => {
-  it("renders a non-collecting roadmap when explicitly disabled", () => {
+  it("renders nothing when explicitly disabled", () => {
     const { container } = render(<AlertOffer enabled={false} />);
 
-    expect(
-      screen.getByRole("heading", { name: /alerts are planned for later/i }),
-    ).toBeInTheDocument();
+    expect(container).toBeEmptyDOMElement();
     expect(container).not.toHaveTextContent("$9");
     expect(container).not.toHaveTextContent(/\bSMS\b/i);
-    expect(container.querySelector('a[href^="mailto:"], form')).toBeNull();
   });
 
   it("renders the preserved early-access offer when explicitly enabled", () => {
@@ -144,9 +199,17 @@ describe("evidence-first guide template", () => {
 
       const breadcrumbs = screen.getByRole("navigation", { name: "Breadcrumb" });
       expect(within(breadcrumbs).getByRole("link", { name: "Home" })).toHaveAttribute("href", "/");
+      expect(within(breadcrumbs).queryByText("Field manual")).not.toBeInTheDocument();
       expect(within(breadcrumbs).getByText(guide.title)).toHaveAttribute(
         "aria-current",
         "page",
+      );
+      const headerBackLink = container.querySelector(".guide-back");
+      expect(headerBackLink).toHaveAttribute("href", "/#reset-desk");
+      expect(headerBackLink).toHaveTextContent("Reset desk");
+      expect(container).not.toHaveTextContent("All field notes");
+      expect(container.querySelector(".guide-footer")).not.toHaveTextContent(
+        /not affiliated with openai/i,
       );
 
       const sources = screen.getByRole("region", { name: "Sources and claim status" });

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ResetDesk } from "@/components/reset-desk";
 
@@ -57,7 +57,69 @@ Weekly limit: 41% left · resets 2099-09-20T09:00:00Z`,
 
     expect(await screen.findByText("73%")).toBeInTheDocument();
     expect(screen.getByText("41%")).toBeInTheDocument();
+    expect(screen.getAllByText("RESETS IN")).toHaveLength(2);
+    expect(screen.queryByText("TIME TO RECOVERY")).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("Saved on this device");
+  });
+
+  it("lets each quota window choose its own calendar reminder lead time", async () => {
+    render(<ResetDesk />);
+
+    fireEvent.change(screen.getByLabelText("Paste Codex status"), {
+      target: {
+        value: `5h limit: 73% left · resets 2099-09-15T18:30:00Z
+Weekly limit: 41% left · resets 2099-09-20T09:00:00Z`,
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Parse status" }));
+
+    const shortReminder = await screen.findByLabelText("5-hour reminder time");
+    const weeklyReminder = screen.getByLabelText("weekly reminder time");
+
+    expect(shortReminder).toHaveValue("5");
+    expect(weeklyReminder).toHaveValue("5");
+    expect(screen.getAllByRole("option").map((option) => option.textContent)).toEqual([
+      "5 min before",
+      "15 min before",
+      "30 min before",
+      "5 min before",
+      "15 min before",
+      "30 min before",
+    ]);
+
+    fireEvent.change(shortReminder, { target: { value: "15" } });
+
+    expect(shortReminder).toHaveValue("15");
+    expect(weeklyReminder).toHaveValue("5");
+    expect(screen.getByRole("button", { name: "Add 15-minute reminder" }))
+      .toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add 5-minute reminder" }))
+      .toBeInTheDocument();
+  });
+
+  it("uses a short prompt and does not render an empty result dashboard", () => {
+    render(<ResetDesk />);
+
+    expect(screen.getByPlaceholderText("Paste your Codex /status output"))
+      .toHaveAccessibleDescription("Run /status in Codex, then paste the result here.");
+    expect(screen.queryByText("WAITING FOR YOUR INPUT")).not.toBeInTheDocument();
+    expect(screen.queryByText("— — : — — : — —")).not.toBeInTheDocument();
+  });
+
+  it("offers manual setup directly when parsing fails", () => {
+    render(<ResetDesk />);
+
+    fireEvent.change(screen.getByLabelText("Paste Codex status"), {
+      target: { value: "not a quota status" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Parse status" }));
+
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("We could not find a supported quota window.");
+    fireEvent.click(within(alert).getByRole("button", { name: "Use manual setup" }));
+
+    expect(screen.getByLabelText("5-hour remaining percentage")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("accepts a manual five-hour window", async () => {
@@ -113,7 +175,8 @@ Weekly limit: 41% left · resets 2099-09-20T09:00:00Z`,
 
     render(<ResetDesk />);
 
-    expect(await screen.findByText("WAITING FOR YOUR INPUT")).toBeInTheDocument();
+    expect(await screen.findByLabelText("Paste Codex status")).toBeInTheDocument();
+    expect(screen.queryByText("WAITING FOR YOUR INPUT")).not.toBeInTheDocument();
   });
 
   it("keeps working when browser storage is unavailable", async () => {

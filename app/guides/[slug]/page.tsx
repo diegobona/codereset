@@ -71,7 +71,6 @@ export default async function GuidePage({ params }: GuidePageProps) {
     faqSchema(guide.faqs),
     breadcrumbSchema([
       { name: "Home", path: "/" },
-      { name: "Field manual", path: "/#field-manual" },
       { name: guide.title, path: guidePath },
     ]),
   ];
@@ -92,11 +91,11 @@ export default async function GuidePage({ params }: GuidePageProps) {
         <Link className="brand" href="/" aria-label="CodeReset home">
           <BrandMark className="brand-mark" /><span>CodeReset</span><span className="brand-suffix">.dev</span>
         </Link>
-        <Link className="guide-back" href="/#field-manual"><ArrowLeft size={15} /> All field notes</Link>
+        <Link className="guide-back" href="/#reset-desk"><ArrowLeft size={15} /> Reset desk</Link>
       </header>
 
       <ArticleLayout guide={guide} relatedGuides={relatedGuides} />
-      <footer className="guide-footer"><div className="shell"><p>CodeReset is not affiliated with OpenAI. Always verify account-specific quota information in Codex.</p><GuideDeskLink /></div></footer>
+      <footer className="guide-footer"><div className="shell"><GuideDeskLink /></div></footer>
     </main>
   );
 }
