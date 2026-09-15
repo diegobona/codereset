@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
+import { AnalyticsBootstrap, GuideDeskLink } from "@/components/analytics-client";
 import { BrandMark } from "@/components/icons";
 import { getGuide } from "@/lib/content";
 import { publishedRoutes } from "@/lib/content/route-manifest";
@@ -73,6 +74,7 @@ export default async function GuidePage({ params }: GuidePageProps) {
 
   return (
     <main className="guide-page">
+      <AnalyticsBootstrap page="guide" guidePageview />
       {structuredData.map((schema) => (
         <script
           key={schema["@type"]}
@@ -135,7 +137,7 @@ export default async function GuidePage({ params }: GuidePageProps) {
         <span className="section-index">KEEP READING</span>
         <div>{relatedGuides.map((related) => related && <Link href={`/guides/${related.slug}`} key={related.slug}><span>{related.eyebrow}</span><strong>{related.title}</strong><ArrowRight size={18} /></Link>)}</div>
       </section>
-      <footer className="guide-footer"><div className="shell"><p>CodeReset is not affiliated with OpenAI. Always verify account-specific quota information in Codex.</p><Link href="/">Back to reset desk <ArrowRight size={15} /></Link></div></footer>
+      <footer className="guide-footer"><div className="shell"><p>CodeReset is not affiliated with OpenAI. Always verify account-specific quota information in Codex.</p><GuideDeskLink /></div></footer>
     </main>
   );
 }

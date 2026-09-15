@@ -5,6 +5,43 @@ import { ResetDesk } from "@/components/reset-desk";
 describe("ResetDesk", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    window.sessionStorage.clear();
+  });
+
+  it("records only coarse funnel events when pasted status parses", async () => {
+    const payloads: string[] = [];
+    Object.defineProperty(window.navigator, "sendBeacon", {
+      configurable: true,
+      value: vi.fn((_url: string, blob: Blob) => {
+        const reader = new FileReader();
+        reader.addEventListener("load", () => payloads.push(String(reader.result)));
+        reader.readAsText(blob);
+        return true;
+      }),
+    });
+    render(<ResetDesk />);
+
+    fireEvent.change(screen.getByLabelText("Paste Codex status"), {
+      target: {
+        value:
+          "Weekly limit: 41% left · resets 2099-09-20T09:00:00Z\nSECRET-TEXT",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Parse status" }));
+    await waitFor(() => expect(payloads).toHaveLength(4));
+
+    expect(payloads.map((payload) => JSON.parse(payload).event)).toEqual([
+      "desk_start",
+      "parser_attempt",
+      "parser_success",
+      "desk_complete",
+    ]);
+    expect(payloads.join(" ")).not.toContain("SECRET-TEXT");
+    expect(payloads.map((payload) => JSON.parse(payload))).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ page: "home" }),
+      ]),
+    );
   });
 
   it("parses pasted status into two visible quota windows", async () => {

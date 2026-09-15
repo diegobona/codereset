@@ -323,10 +323,27 @@ footer { background: #090a09; color: white; padding-top: 75px; }
 .guide-footer p { margin: 0; color: #9fa19b; font: 10px/1.5 var(--mono); }
 .guide-footer a { display: flex; align-items: center; gap: 7px; font: 700 10px/1 var(--mono); text-transform: uppercase; }
 
+.privacy-document { display: grid; grid-template-columns: 280px 1fr; gap: 80px; padding-block: 72px 110px; }
+.privacy-summary { position: sticky; top: 30px; height: fit-content; border: 1px solid var(--ink); background: var(--signal); padding: 28px; box-shadow: 7px 7px 0 var(--ink); }
+.privacy-summary strong { display: block; margin: 18px 0 10px; font-size: 19px; }
+.privacy-summary p { color: #33362f; line-height: 1.6; margin: 0; }
+.privacy-article { max-width: 760px; }
+.privacy-article section { border-top: 1px solid var(--ink); padding: 34px 0 46px; }
+.privacy-article h2 { font-family: var(--sans); text-transform: none; letter-spacing: -.045em; font-size: clamp(30px,4vw,45px); }
+.privacy-article p, .privacy-article li { color: #41443e; font-size: 16px; line-height: 1.7; }
+.privacy-article li + li { margin-top: 10px; }
+.privacy-article code { overflow-wrap: anywhere; font: 700 12px/1.4 var(--mono); background: var(--paper-deep); padding: 2px 5px; }
+.privacy-article a { text-decoration: underline; font-weight: 700; }
+.privacy-controls { margin-top: 24px; border: 1px solid var(--ink); padding: 20px; background: #fff; }
+.privacy-controls p { margin-top: 0; }
+.privacy-controls button { min-height: 44px; border: 1px solid var(--ink); background: var(--ink); color: white; padding: 0 15px; cursor: pointer; font: 700 11px/1 var(--mono); text-transform: uppercase; }
+
 @media (max-width: 760px) {
   .guide-hero { padding-block: 70px 55px; }
   .guide-body { grid-template-columns: 1fr; gap: 35px; padding-block: 45px 75px; }
   .guide-body aside { position: static; border-bottom: 1px solid var(--line); padding-bottom: 25px; }
   .related-guides > div { grid-template-columns: 1fr; }
   .guide-footer > div { align-items: flex-start; flex-direction: column; }
+  .privacy-document { grid-template-columns: 1fr; gap: 50px; padding-block: 45px 75px; }
+  .privacy-summary { position: static; }
 }

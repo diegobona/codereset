@@ -2,7 +2,7 @@ import { guides } from "@/lib/content";
 
 export type PublishedRoute = {
   pathname: string;
-  kind: "home" | "guide";
+  kind: "home" | "guide" | "privacy";
   slug: string | null;
   lastModified: string;
   indexable: boolean;
@@ -12,6 +12,13 @@ const routeCandidates: PublishedRoute[] = [
   {
     pathname: "/",
     kind: "home",
+    slug: null,
+    lastModified: "2026-09-15",
+    indexable: true,
+  },
+  {
+    pathname: "/privacy",
+    kind: "privacy",
     slug: null,
     lastModified: "2026-09-15",
     indexable: true,
@@ -58,6 +65,15 @@ function validatePublishedRoutes(routes: PublishedRoute[]) {
     if (route.kind === "home") {
       if (route.pathname !== "/" || route.slug !== null) {
         throw new Error("The home route must use pathname / and a null slug");
+      }
+      continue;
+    }
+
+    if (route.kind === "privacy") {
+      if (route.pathname !== "/privacy" || route.slug !== null) {
+        throw new Error(
+          "The privacy route must use pathname /privacy and a null slug",
+        );
       }
       continue;
     }

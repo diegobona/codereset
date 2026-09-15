@@ -18,6 +18,7 @@ import {
   type ParsedUsage,
   type UsageWindow,
 } from "@/lib/reset";
+import { trackEvent } from "@/lib/analytics/events";
 
 const STORAGE_KEY = "codereset:v1:quota";
 const STORAGE_EVENT = "codereset:quota-change";
@@ -201,16 +202,21 @@ export function ResetDesk() {
   }
 
   function handleParse() {
+    trackEvent("desk_start", { page: "home" });
+    trackEvent("parser_attempt", { page: "home" });
     const parsed = parseUsageStatus(statusText);
     if (!parsed.shortWindow && !parsed.weeklyWindow) {
       setError("We could not find a supported quota window. Try the sample or enter it manually.");
       setMessage("");
       return;
     }
+    trackEvent("parser_success", { page: "home" });
+    trackEvent("desk_complete", { page: "home" });
     saveUsage(parsed);
   }
 
   function handleManualSave() {
+    trackEvent("desk_start", { page: "home" });
     const nextUsage: ParsedUsage = {
       shortWindow: toWindow(manual.shortRemaining, manual.shortReset),
       weeklyWindow: toWindow(manual.weeklyRemaining, manual.weeklyReset),
@@ -220,6 +226,8 @@ export function ResetDesk() {
       setMessage("");
       return;
     }
+    trackEvent("manual_setup_complete", { page: "home" });
+    trackEvent("desk_complete", { page: "home" });
     saveUsage(nextUsage);
   }
 
@@ -232,6 +240,7 @@ export function ResetDesk() {
   }
 
   function downloadReminder(window: UsageWindow, title: string) {
+    trackEvent("ics_download", { page: "home" });
     const file = new Blob([
       createCalendarEvent({ resetAt: new Date(window.resetAt), title, reminderMinutes: 5 }),
     ], { type: "text/calendar;charset=utf-8" });
@@ -250,7 +259,15 @@ export function ResetDesk() {
           <button type="button" aria-pressed={mode === "paste"} onClick={() => setMode("paste")}>
             <ClipboardPaste size={15} /> Paste status
           </button>
-          <button type="button" aria-pressed={mode === "manual"} onClick={() => setMode("manual")}>
+          <button
+            type="button"
+            aria-pressed={mode === "manual"}
+            onClick={() => {
+              trackEvent("desk_start", { page: "home" });
+              trackEvent("manual_setup_start", { page: "home" });
+              setMode("manual");
+            }}
+          >
             <Gauge size={15} /> Manual setup
           </button>
         </div>

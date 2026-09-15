@@ -13,6 +13,7 @@ import {
   TerminalSquare,
 } from "lucide-react";
 import { AlertOffer } from "@/components/alert-offer";
+import { AnalyticsBootstrap } from "@/components/analytics-client";
 import { BrandMark, Crosshair } from "@/components/icons";
 import { ResetDesk } from "@/components/reset-desk";
 import { faqs, guidePreviews, previewSignals } from "@/lib/content";
@@ -87,6 +88,7 @@ export default function HomePage() {
 
   return (
     <main>
+      <AnalyticsBootstrap page="home" />
       {structuredData.map((schema) => (
         <script
           key={schema["@type"]}
@@ -292,7 +294,7 @@ export default function HomePage() {
             <span>PRODUCT</span><a href="#reset-desk">Reset desk</a><a href="#signal-log">Signal log</a><a href="#alerts">Alerts</a>
           </div>
           <div>
-            <span>LEARN</span>{guidePreviews.slice(0, 3).map((guide) => <Link href={`/guides/${guide.slug}`} key={guide.slug}>{guide.title}</Link>)}
+            <span>LEARN</span>{guidePreviews.slice(0, 3).map((guide) => <Link href={`/guides/${guide.slug}`} key={guide.slug}>{guide.title}</Link>)}<Link href="/privacy">Privacy</Link>
           </div>
         </div>
         <div className="shell footer-bottom">
