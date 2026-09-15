@@ -1,10 +1,22 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
-import HomePage from "@/app/page";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { AlertOffer } from "@/components/alert-offer";
 
+async function loadHomePage(showAlertOffer = false) {
+  vi.stubEnv(
+    "NEXT_PUBLIC_SHOW_ALERT_OFFER",
+    showAlertOffer ? "true" : undefined,
+  );
+  vi.resetModules();
+
+  return (await import("@/app/page")).default;
+}
+
+afterEach(() => vi.unstubAllEnvs());
+
 describe("HomePage", () => {
-  it("leads with a clear quota reset promise", () => {
+  it("leads with a clear quota reset promise", async () => {
+    const HomePage = await loadHomePage();
     render(<HomePage />);
 
     expect(
@@ -12,7 +24,8 @@ describe("HomePage", () => {
     ).toBeInTheDocument();
   });
 
-  it("explains the private local tracking model", () => {
+  it("explains the private local tracking model", async () => {
+    const HomePage = await loadHomePage();
     render(<HomePage />);
 
     expect(
@@ -20,20 +33,23 @@ describe("HomePage", () => {
     ).toBeInTheDocument();
   });
 
-  it("distinguishes personal windows from public reset events", () => {
+  it("distinguishes personal windows from public reset events", async () => {
+    const HomePage = await loadHomePage();
     render(<HomePage />);
 
     expect(screen.getByText("Your quota window", { exact: true })).toBeInTheDocument();
     expect(screen.getByText("Public reset event", { exact: true })).toBeInTheDocument();
   });
 
-  it("discloses that the product is independent", () => {
+  it("discloses that the product is independent", async () => {
+    const HomePage = await loadHomePage();
     render(<HomePage />);
 
     expect(screen.getByText(/not affiliated with openai/i)).toBeInTheDocument();
   });
 
-  it("keeps the unvalidated alert offer out of the default homepage", () => {
+  it("keeps the unvalidated alert offer out of the default homepage", async () => {
+    const HomePage = await loadHomePage();
     const { container } = render(<HomePage />);
 
     expect(container.querySelector("#alerts")).toBeInTheDocument();
@@ -50,6 +66,19 @@ describe("HomePage", () => {
     expect(container).not.toHaveTextContent(/verified global reset alerts/i);
     expect(container.querySelector('a[href^="mailto:"], form')).toBeNull();
     expect(screen.getByText("PRODUCT PREVIEW", { exact: true })).toBeInTheDocument();
+  });
+
+  it("renders the early-access offer when the build flag is enabled", async () => {
+    const HomePage = await loadHomePage(true);
+    render(<HomePage />);
+
+    expect(screen.getByRole("link", { name: /get reset alerts/i })).toHaveAttribute(
+      "href",
+      "#alerts",
+    );
+    expect(screen.getByText("$9", { exact: true })).toBeInTheDocument();
+    expect(screen.getByText("Email + SMS delivery", { exact: true })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /join early access/i })).toBeInTheDocument();
   });
 });
 
