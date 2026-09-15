@@ -2,7 +2,7 @@ import { guides } from "@/lib/content";
 
 export type PublishedRoute = {
   pathname: string;
-  kind: "home" | "guide" | "privacy" | "trust";
+  kind: "home" | "guide" | "privacy" | "trust" | "tool";
   slug: string | null;
   lastModified: string;
   indexable: boolean;
@@ -19,6 +19,13 @@ const routeCandidates: PublishedRoute[] = [
   {
     pathname: "/privacy",
     kind: "privacy",
+    slug: null,
+    lastModified: "2026-09-15",
+    indexable: true,
+  },
+  {
+    pathname: "/reset-time",
+    kind: "tool",
     slug: null,
     lastModified: "2026-09-15",
     indexable: true,
@@ -93,6 +100,13 @@ function validatePublishedRoutes(routes: PublishedRoute[]) {
         route.slug !== null
       ) {
         throw new Error(`Invalid trust route: ${route.pathname}`);
+      }
+      continue;
+    }
+
+    if (route.kind === "tool") {
+      if (route.pathname !== "/reset-time" || route.slug !== null) {
+        throw new Error(`Invalid tool route: ${route.pathname}`);
       }
       continue;
     }

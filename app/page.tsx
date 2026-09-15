@@ -91,6 +91,9 @@ export default function HomePage() {
           <Link href="/guides/banked-resets">
             What are banked resets? <ArrowRight size={16} />
           </Link>
+          <Link href="/reset-time">
+            Convert a Codex reset time <ArrowRight size={16} />
+          </Link>
         </nav>
       </section>
 

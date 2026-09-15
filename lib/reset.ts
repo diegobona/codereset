@@ -10,6 +10,14 @@ export type ParsedUsage = {
 
 export type PaceState = "ahead" | "steady" | "at-risk";
 
+export type ResetTimeConversion = {
+  date: string;
+  time: string;
+  timeZoneName: string;
+  utcOffset: string;
+  dayRelation: "previous-day" | "same-day" | "next-day";
+};
+
 function clampPercent(value: number) {
   return Math.min(100, Math.max(0, value));
 }
@@ -52,6 +60,117 @@ export function parseResetTimestamp(value: string): Date | undefined {
     date.getMinutes() !== minute
   ) return undefined;
   return date;
+}
+
+export function parseAbsoluteResetTimestamp(value: string): Date | undefined {
+  const match = value.trim().match(
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})$/,
+  );
+  if (!match) return undefined;
+
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText = "0", offset] = match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  const second = Number(secondText);
+  const offsetMatch = offset.match(/^([+-])(\d{2}):(\d{2})$/);
+
+  if (
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > new Date(Date.UTC(year, month, 0)).getUTCDate() ||
+    hour > 23 ||
+    minute > 59 ||
+    second > 59 ||
+    (offsetMatch && (Number(offsetMatch[2]) > 23 || Number(offsetMatch[3]) > 59))
+  ) {
+    return undefined;
+  }
+
+  const date = new Date(value.trim());
+  return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
+export function convertResetTime(
+  resetAt: Date,
+  timeZone: string,
+): ResetTimeConversion | undefined {
+  if (Number.isNaN(resetAt.getTime())) return undefined;
+
+  try {
+    const dateFormatter = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+    const timeFormatter = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+      timeZoneName: "short",
+    });
+    const offsetFormatter = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      timeZoneName: "longOffset",
+    });
+    const calendarFormatter = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      year: "numeric",
+      month: "numeric",
+      day: "numeric",
+    });
+
+    const timeParts = timeFormatter.formatToParts(resetAt);
+    const timePart = (type: Intl.DateTimeFormatPartTypes) =>
+      timeParts.find((part) => part.type === type)?.value;
+    const hour = timePart("hour");
+    const minute = timePart("minute");
+    const dayPeriod = timePart("dayPeriod");
+    const timeZoneName = timePart("timeZoneName");
+    const utcOffset = offsetFormatter
+      .formatToParts(resetAt)
+      .find((part) => part.type === "timeZoneName")
+      ?.value.replace(/^GMT/, "UTC");
+
+    const calendarParts = calendarFormatter.formatToParts(resetAt);
+    const calendarPart = (type: "year" | "month" | "day") =>
+      Number(calendarParts.find((part) => part.type === type)?.value);
+    const targetDay = Date.UTC(
+      calendarPart("year"),
+      calendarPart("month") - 1,
+      calendarPart("day"),
+    );
+    const utcDay = Date.UTC(
+      resetAt.getUTCFullYear(),
+      resetAt.getUTCMonth(),
+      resetAt.getUTCDate(),
+    );
+
+    if (!hour || !minute || !dayPeriod || !timeZoneName || !utcOffset) {
+      return undefined;
+    }
+
+    return {
+      date: dateFormatter.format(resetAt),
+      time: `${hour}:${minute} ${dayPeriod}`,
+      timeZoneName,
+      utcOffset,
+      dayRelation:
+        targetDay < utcDay
+          ? "previous-day"
+          : targetDay > utcDay
+            ? "next-day"
+            : "same-day",
+    };
+  } catch {
+    return undefined;
+  }
 }
 
 function parseWindow(line: string): UsageWindow | undefined {

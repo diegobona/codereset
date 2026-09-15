@@ -48,6 +48,11 @@ export function ArticleLayout({
             <section className="quick-answer">
               <span>QUICK ANSWER</span>
               <p>{guide.answer}</p>
+              {(guide.slug === "5-hour-limit" || guide.slug === "weekly-limit") && (
+                <Link className="quick-answer-tool-link" href="/reset-time">
+                  Convert this reset time <ArrowRight size={15} />
+                </Link>
+              )}
             </section>
             {guide.sections.map((section, index) => (
               <section
