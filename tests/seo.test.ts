@@ -69,6 +69,8 @@ function fixturePage({
   ogImage = "https://codereset.dev/og.png",
   h1Count = 1,
   jsonLd = '{"@context":"https://schema.org","@type":"WebPage"}',
+  anchors = [],
+  namedAnchors = [],
 }: {
   pathname: string;
   title: string;
@@ -79,6 +81,8 @@ function fixturePage({
   ogImage?: string | null;
   h1Count?: number;
   jsonLd?: string;
+  anchors?: string[];
+  namedAnchors?: string[];
 }) {
   return `<!doctype html>
 <html lang="en">
@@ -91,6 +95,8 @@ function fixturePage({
   </head>
   <body>
     ${Array.from({ length: h1Count }, () => `<h1>${title}</h1>`).join("\n")}
+    ${anchors.map((id) => `<section id="${id}"></section>`).join("\n")}
+    ${namedAnchors.map((name) => `<a name="${name}"></a>`).join("\n")}
     ${links.map((href) => `<a href="${href}">Link</a>`).join("\n")}
     <script type="application/ld+json">${jsonLd}</script>
   </body>
@@ -112,6 +118,8 @@ function createExportFixture({
     ogImage?: string | null;
     h1Count?: number;
     jsonLd?: string;
+    anchors?: string[];
+    namedAnchors?: string[];
   }>;
   sitemapPaths: string[];
 }) {
@@ -484,7 +492,12 @@ describe("static export SEO validator", () => {
     pathname: "/",
     title: "CodeReset home",
     description: "Private Codex quota reset tracking from your own usage data.",
-    links: ["/guides/weekly-limit#answer"],
+    links: [
+      "#local%20section",
+      "/guides/weekly-limit#answer",
+      "/guides/weekly-limit#legacy-answer",
+    ],
+    anchors: ["local section"],
   };
   const guide = {
     file: "guides/weekly-limit.html",
@@ -492,6 +505,8 @@ describe("static export SEO validator", () => {
     title: "Codex weekly reset guide",
     description: "Find the account-specific weekly reset timestamp shown by Codex.",
     links: ["/"],
+    anchors: ["answer"],
+    namedAnchors: ["legacy-answer"],
   };
 
   it("accepts index.html and nested path.html exports with local resources", () => {
@@ -558,6 +573,31 @@ describe("static export SEO validator", () => {
     expect(`${result.stdout}\n${result.stderr}`).toMatch(/canonical.*does not match/i);
   });
 
+  it.each([
+    ["https://codereset.dev/index.html", { ...home, links: [] }, "/"],
+    [
+      "https://codereset.dev/guides/weekly-limit.html",
+      { ...guide, links: [] },
+      "/guides/weekly-limit",
+    ],
+  ])("rejects a non-canonical HTML path in canonical URL %s", (
+    canonical,
+    page,
+    sitemapPath,
+  ) => {
+    const fixture = createExportFixture({
+      pages: [{ ...page, canonical }],
+      sitemapPaths: [sitemapPath],
+    });
+
+    const result = runExportValidator(fixture);
+
+    expect(result.status).toBe(1);
+    expect(`${result.stdout}\n${result.stderr}`).toMatch(
+      /canonical URL.*non-canonical/i,
+    );
+  });
+
   it("rejects an indexable page without exactly one H1", () => {
     const fixture = createExportFixture({
       pages: [{ ...home, h1Count: 0 }],
@@ -606,6 +646,45 @@ describe("static export SEO validator", () => {
     expect(`${result.stdout}\n${result.stderr}`).toMatch(/broken internal link/i);
   });
 
+  it("rejects a missing same-page fragment target", () => {
+    const fixture = createExportFixture({
+      pages: [{ ...home, links: ["#missing-section"] }],
+      sitemapPaths: ["/"],
+    });
+
+    const result = runExportValidator(fixture);
+
+    expect(result.status).toBe(1);
+    expect(`${result.stdout}\n${result.stderr}`).toMatch(/broken fragment/i);
+  });
+
+  it("rejects a missing cross-page fragment target", () => {
+    const fixture = createExportFixture({
+      pages: [
+        { ...home, links: ["/guides/weekly-limit#missing-answer"] },
+        guide,
+      ],
+      sitemapPaths: ["/", "/guides/weekly-limit"],
+    });
+
+    const result = runExportValidator(fixture);
+
+    expect(result.status).toBe(1);
+    expect(`${result.stdout}\n${result.stderr}`).toMatch(/broken fragment/i);
+  });
+
+  it("rejects a malformed percent-encoded fragment", () => {
+    const fixture = createExportFixture({
+      pages: [{ ...home, links: ["#bad%E0%A4%A"] }],
+      sitemapPaths: ["/"],
+    });
+
+    const result = runExportValidator(fixture);
+
+    expect(result.status).toBe(1);
+    expect(`${result.stdout}\n${result.stderr}`).toMatch(/invalid fragment/i);
+  });
+
   it("rejects a sitemap URL without a matching static page", () => {
     const fixture = createExportFixture({
       pages: [home],
@@ -632,6 +711,18 @@ describe("static export SEO validator", () => {
     expect(`${result.stdout}\n${result.stderr}`).toMatch(/sitemap.*noindex/i);
   });
 
+  it("treats robots none as noindex when validating the sitemap", () => {
+    const fixture = createExportFixture({
+      pages: [{ ...home, links: [], robots: "none" }],
+      sitemapPaths: ["/"],
+    });
+
+    const result = runExportValidator(fixture);
+
+    expect(result.status).toBe(1);
+    expect(`${result.stdout}\n${result.stderr}`).toMatch(/sitemap.*noindex/i);
+  });
+
   it("rejects duplicate normalized URLs in the sitemap", () => {
     const fixture = createExportFixture({
       pages: [home],
@@ -642,6 +733,26 @@ describe("static export SEO validator", () => {
 
     expect(result.status).toBe(1);
     expect(`${result.stdout}\n${result.stderr}`).toMatch(/duplicate sitemap URL/i);
+  });
+
+  it.each([
+    ["/index.html", { ...home, links: [] }],
+    ["/guides/weekly-limit.html", { ...guide, links: [] }],
+  ])("rejects a non-canonical HTML path in sitemap URL %s", (
+    sitemapPath,
+    page,
+  ) => {
+    const fixture = createExportFixture({
+      pages: [page],
+      sitemapPaths: [sitemapPath],
+    });
+
+    const result = runExportValidator(fixture);
+
+    expect(result.status).toBe(1);
+    expect(`${result.stdout}\n${result.stderr}`).toMatch(
+      /sitemap URL.*non-canonical/i,
+    );
   });
 
   it("rejects an indexable static page missing from the sitemap", () => {

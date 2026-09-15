@@ -14,9 +14,10 @@ function walk(directory) {
   });
 }
 
-function normalizePagePathname(input) {
-  const url = new URL(input, `${CANONICAL_ORIGIN}/`);
-  let pathname = url.pathname.replace(/\/{2,}/g, "/");
+function routeForHtml(exportDirectory, file) {
+  const relativePath = relative(exportDirectory, file).split(sep);
+  const encodedPath = relativePath.map(encodeURIComponent).join("/");
+  let pathname = `/${encodedPath}`;
 
   if (pathname === "/index.html") {
     pathname = "/";
@@ -30,10 +31,26 @@ function normalizePagePathname(input) {
   return pathname || "/";
 }
 
-function routeForHtml(exportDirectory, file) {
-  const relativePath = relative(exportDirectory, file).split(sep);
-  const encodedPath = relativePath.map(encodeURIComponent).join("/");
-  return normalizePagePathname(`/${encodedPath}`);
+function routeForInternalLink(pathname) {
+  let route = pathname.replace(/\/{2,}/g, "/");
+  if (route === "/index.html") {
+    route = "/";
+  } else if (route.endsWith("/index.html")) {
+    route = route.slice(0, -"/index.html".length) || "/";
+  } else if (route.endsWith(".html")) {
+    route = route.slice(0, -".html".length) || "/";
+  }
+  if (route !== "/") route = route.replace(/\/+$/, "");
+  return route || "/";
+}
+
+function isCanonicalPublishedPathname(pathname) {
+  return (
+    pathname === "/" ||
+    (!pathname.endsWith("/") &&
+      !pathname.toLowerCase().endsWith(".html") &&
+      !pathname.includes("//"))
+  );
 }
 
 function canonicalRoute(rawUrl, label, errors) {
@@ -47,7 +64,11 @@ function canonicalRoute(rawUrl, label, errors) {
       errors.push(`${label} must not contain a query or fragment: ${rawUrl}`);
       return null;
     }
-    return normalizePagePathname(url.pathname);
+    if (!isCanonicalPublishedPathname(url.pathname)) {
+      errors.push(`${label} uses a non-canonical path: ${url.pathname}`);
+      return null;
+    }
+    return url.pathname;
   } catch {
     errors.push(`${label} is not a valid URL: ${rawUrl}`);
     return null;
@@ -62,10 +83,10 @@ function hasNoindex(document) {
   return Array.from(document.querySelectorAll("meta[name]")).some((meta) => {
     const name = meta.getAttribute("name")?.toLowerCase();
     if (name !== "robots" && name !== "googlebot") return false;
-    return (meta.getAttribute("content") ?? "")
+    const directives = (meta.getAttribute("content") ?? "")
       .toLowerCase()
-      .split(/[\s,]+/)
-      .includes("noindex");
+      .split(/[\s,]+/);
+    return directives.includes("noindex") || directives.includes("none");
   });
 }
 
@@ -228,6 +249,29 @@ function validateUniqueMetadata(pages, errors) {
   }
 }
 
+function validateFragmentTarget({ sourceRoute, rawHref, url, targetPage, errors }) {
+  if (!url.hash) return;
+
+  let fragment;
+  try {
+    fragment = decodeURIComponent(url.hash.slice(1));
+  } catch {
+    errors.push(`Invalid fragment on ${sourceRoute}: ${rawHref}`);
+    return;
+  }
+  if (!fragment) return;
+
+  const hasId = targetPage.document.getElementById(fragment) !== null;
+  const hasNamedAnchor = Array.from(
+    targetPage.document.querySelectorAll("a[name]"),
+  ).some((anchor) => anchor.getAttribute("name") === fragment);
+  if (!hasId && !hasNamedAnchor) {
+    errors.push(
+      `Broken fragment link on ${sourceRoute}: ${rawHref} -> ${targetPage.route}#${fragment}`,
+    );
+  }
+}
+
 function validateInternalLinks(pages, pageByRoute, exportDirectory, errors) {
   for (const page of pages.filter((candidate) => candidate.indexable)) {
     for (const anchor of page.document.querySelectorAll("a[href]")) {
@@ -257,12 +301,21 @@ function validateInternalLinks(pages, pageByRoute, exportDirectory, errors) {
         continue;
       }
 
-      const targetRoute = normalizePagePathname(url.pathname);
-      if (!pageByRoute.get(targetRoute)?.indexable) {
+      const targetRoute = routeForInternalLink(url.pathname);
+      const targetPage = pageByRoute.get(targetRoute);
+      if (!targetPage?.indexable) {
         errors.push(
           `Broken internal link on ${page.route}: ${rawHref} -> ${targetRoute}`,
         );
+        continue;
       }
+      validateFragmentTarget({
+        sourceRoute: page.route,
+        rawHref,
+        url,
+        targetPage,
+        errors,
+      });
     }
   }
 }
