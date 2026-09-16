@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   Bell,
   CalendarPlus,
   CheckCircle2,
   ClipboardPaste,
   Gauge,
+  Pencil,
   RotateCcw,
-  ShieldCheck,
 } from "lucide-react";
 import {
   createCalendarEvent,
@@ -72,14 +72,19 @@ function decodeQuota(snapshot: string): ParsedUsage {
       if (!candidate || typeof candidate !== "object") return undefined;
       const value = candidate as Partial<UsageWindow>;
       if (
-        typeof value.remainingPercent !== "number" ||
-        !Number.isFinite(value.remainingPercent) ||
-        value.remainingPercent < 0 ||
-        value.remainingPercent > 100 ||
+        (value.remainingPercent !== undefined && (
+          typeof value.remainingPercent !== "number" ||
+          !Number.isFinite(value.remainingPercent) ||
+          value.remainingPercent < 0 ||
+          value.remainingPercent > 100
+        )) ||
         typeof value.resetAt !== "string" ||
         Number.isNaN(new Date(value.resetAt).getTime())
       ) return undefined;
-      return { remainingPercent: value.remainingPercent, resetAt: value.resetAt };
+      return {
+        ...(value.remainingPercent === undefined ? {} : { remainingPercent: value.remainingPercent }),
+        resetAt: value.resetAt,
+      };
     };
     const nextUsage = {
       shortWindow: normalizeWindow(parsed.shortWindow),
@@ -138,12 +143,15 @@ function WindowCard({
   const [reminderMinutes, setReminderMinutes] = useState<ReminderMinutes>(5);
   const resetAt = new Date(window.resetAt);
   const countdown = formatCountdown(resetAt, now);
-  const pace = getPaceState({
-    remainingPercent: window.remainingPercent,
-    now,
-    resetAt,
-    windowHours: kind === "5-hour" ? 5 : 168,
-  });
+  const remainingPercent = window.remainingPercent;
+  const pace = remainingPercent === undefined
+    ? undefined
+    : getPaceState({
+      remainingPercent,
+      now,
+      resetAt,
+      windowHours: kind === "5-hour" ? 5 : 168,
+    });
   const readableDate = new Intl.DateTimeFormat(undefined, {
     dateStyle: "medium",
     timeStyle: "short",
@@ -152,18 +160,25 @@ function WindowCard({
   return (
     <article className="window-card">
       <div className="window-card-head">
-        <span>{kind === "5-hour" ? "SHORT WINDOW" : "WEEKLY RESET"}</span>
-        <b data-pace={pace}>{pace.replace("-", " ")}</b>
+        <span>{kind === "5-hour" ? "5-hour quota" : "Weekly quota"}</span>
+        <b data-pace={countdown.expired ? "reached" : (pace ?? "countdown")}>
+          {countdown.expired ? "Reached" : (pace ? pace.replace("-", " ") : "COUNTDOWN")}
+        </b>
       </div>
-      <div className="window-countdown">
-        <span>RESETS IN</span>
+      <div className="window-countdown" data-expired={countdown.expired}>
+        <span>{countdown.expired ? "Status" : "Resets in"}</span>
         <strong>{countdown.label}</strong>
         <small>{readableDate}</small>
+        {countdown.expired && (
+          <small className="window-expired-hint">Check your quota in Codex.</small>
+        )}
       </div>
-      <div className="window-usage">
-        <div><span>REMAINING</span><strong>{window.remainingPercent}%</strong></div>
-        <div className="window-meter"><i style={{ width: `${window.remainingPercent}%` }} /></div>
-      </div>
+      {remainingPercent !== undefined && (
+        <div className="window-usage">
+          <div><span>Remaining</span><strong>{remainingPercent}%</strong></div>
+          <div className="window-meter"><i style={{ width: `${remainingPercent}%` }} /></div>
+        </div>
+      )}
       <div className="calendar-controls">
         <select
           aria-label={`${kind} reminder time`}
@@ -193,6 +208,9 @@ export function ResetDesk() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [now, setNow] = useState(() => new Date());
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [shouldRevealResults, setShouldRevealResults] = useState(false);
+  const resultsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 1_000);
@@ -211,10 +229,18 @@ export function ResetDesk() {
     [],
   );
 
+  useEffect(() => {
+    if (!shouldRevealResults || !hasUsage || !resultsRef.current) return;
+    resultsRef.current.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    setShouldRevealResults(false);
+  }, [hasUsage, shouldRevealResults]);
+
   function saveUsage(nextUsage: ParsedUsage) {
     const persisted = publishQuota(nextUsage);
+    setEditorOpen(false);
+    setShouldRevealResults(true);
     setMessage(persisted
-      ? "Saved on this device. No account data was sent."
+      ? "Quota saved on this device."
       : "Browser storage is unavailable; saved in this tab only.");
     setError("");
   }
@@ -226,10 +252,10 @@ export function ResetDesk() {
     const parsed = parseResult.usage;
     if (!parsed.shortWindow && !parsed.weeklyWindow) {
       const parseErrors = {
-        "limits-unavailable": "Codex has not loaded your limits yet. Wait a moment and run /status again.",
-        "missing-percentage": "We found a quota window, but not a usable percentage.",
-        "missing-reset-time": "We found a quota percentage, but not a usable reset time.",
-        "unsupported-format": "We could not find a supported quota window.",
+        "limits-unavailable": "Codex has not loaded your limits yet. Wait a moment, then copy /status or Usage details again.",
+        "missing-percentage": "We found a quota name, but no reset time. Copy the full quota lines from /status or Settings → Usage.",
+        "missing-reset-time": "We found the quota, but not its reset time. Copy the full quota lines from /status or Settings → Usage.",
+        "unsupported-format": "We couldn't find a quota name and reset time. Paste the quota lines from /status or Settings → Usage.",
       } as const;
       setError(parseErrors[parseResult.issue ?? "unsupported-format"]);
       setMessage("");
@@ -265,6 +291,8 @@ export function ResetDesk() {
 
   function clearUsage() {
     publishQuota();
+    setEditorOpen(false);
+    setShouldRevealResults(false);
     setManual(emptyManual);
     setStatusText("");
     setMessage("Local quota data cleared.");
@@ -289,83 +317,22 @@ export function ResetDesk() {
   }
 
   return (
-    <div className="reset-desk-app">
-      <div className="desk-toolbar">
-        <div className="desk-toolbar-main">
-          <h2 id="personal-quota-title">My personal quota</h2>
-          <div className="desk-tabs" aria-label="Quota setup method">
-            <button type="button" aria-pressed={mode === "paste"} onClick={() => setMode("paste")}>
-              <ClipboardPaste size={15} /> Paste status
-            </button>
-            <button
-              type="button"
-              aria-pressed={mode === "manual"}
-              onClick={openManualSetup}
-            >
-              <Gauge size={15} /> Manual setup
-            </button>
-          </div>
-        </div>
-        <span><ShieldCheck size={15} /> LOCAL / {localZone}</span>
-      </div>
-
-      <div className="desk-input-panel">
-        {mode === "paste" ? (
-          <div className="paste-panel">
-            <label htmlFor="status-input">Paste Codex status</label>
-            <p className="paste-help" id="status-input-help">
-              Run <code>/status</code> in Codex, then paste the result here.
-            </p>
-            <textarea
-              id="status-input"
-              value={statusText}
-              onChange={(event) => setStatusText(event.target.value)}
-              placeholder="Paste your Codex /status output"
-              aria-describedby="status-input-help"
-              rows={5}
-            />
-            <div className="desk-form-actions">
-              <button className="button button-primary" type="button" onClick={handleParse}>Parse status</button>
-              <button className="text-button" type="button" onClick={() => setStatusText(SAMPLE_STATUS)}>Try sample</button>
-              <span>Nothing leaves this browser.</span>
-            </div>
-          </div>
-        ) : (
-          <div className="manual-panel">
-            <div className="manual-window">
-              <span>5-HOUR WINDOW</span>
-              <label htmlFor="short-remaining">5-hour remaining percentage</label>
-              <div className="percent-input"><input id="short-remaining" type="number" min="0" max="100" value={manual.shortRemaining} onChange={(event) => setManual({ ...manual, shortRemaining: event.target.value })} /><b>%</b></div>
-              <label htmlFor="short-reset">5-hour reset time</label>
-              <input id="short-reset" type="datetime-local" value={manual.shortReset} onChange={(event) => setManual({ ...manual, shortReset: event.target.value })} />
-            </div>
-            <div className="manual-window">
-              <span>WEEKLY WINDOW</span>
-              <label htmlFor="weekly-remaining">Weekly remaining percentage</label>
-              <div className="percent-input"><input id="weekly-remaining" type="number" min="0" max="100" value={manual.weeklyRemaining} onChange={(event) => setManual({ ...manual, weeklyRemaining: event.target.value })} /><b>%</b></div>
-              <label htmlFor="weekly-reset">Weekly reset time</label>
-              <input id="weekly-reset" type="datetime-local" value={manual.weeklyReset} onChange={(event) => setManual({ ...manual, weeklyReset: event.target.value })} />
-            </div>
-            <div className="desk-form-actions manual-actions">
-              <button className="button button-primary" type="button" onClick={handleManualSave}>Save manual setup</button>
-              <span>Times use your current browser timezone.</span>
-            </div>
-          </div>
-        )}
-        {message && <p className="desk-message" role="status"><CheckCircle2 size={15} /> {message}</p>}
-        {error && (
-          <div className="desk-error" role="alert">
-            <span>{error}</span>
-            <button type="button" onClick={openManualSetup}>Use manual setup</button>
-          </div>
-        )}
-      </div>
-
-      {hasUsage ? (
-        <div className="window-results">
+    <div className="reset-desk-app" data-has-usage={hasUsage}>
+      {hasUsage && (
+        <div className="window-results" ref={resultsRef}>
           <div className="results-head">
-            <span>YOUR ACTIVE WINDOWS</span>
-            <button type="button" onClick={clearUsage}><RotateCcw size={14} /> Clear local data</button>
+            <div>
+              <h2>My quota reset time</h2>
+              <span>Local time · {localZone}</span>
+            </div>
+            <div className="results-actions">
+              <button type="button" onClick={() => setEditorOpen(true)}>
+                <Pencil size={14} /> Update quota
+              </button>
+              <button type="button" onClick={clearUsage}>
+                <RotateCcw size={14} /> Clear local data
+              </button>
+            </div>
           </div>
           <div className="window-card-grid">
             {usage.shortWindow && (
@@ -377,7 +344,89 @@ export function ResetDesk() {
           </div>
           <p className="result-disclaimer"><Bell size={14} /> A finished countdown is a reminder to check Codex. It cannot confirm that your quota recovered.</p>
         </div>
-      ) : null}
+      )}
+
+      {message && <p className="desk-message" role="status"><CheckCircle2 size={15} /> {message}</p>}
+
+      {(!hasUsage || editorOpen) && (
+        <div className="desk-editor">
+          <div className="desk-toolbar">
+            <div className="desk-toolbar-main">
+              <h2>
+                {hasUsage ? "Update your quota" : "Add your quota reset time"}
+              </h2>
+              <div className="desk-tabs" aria-label="Quota setup method">
+                <button type="button" aria-pressed={mode === "paste"} onClick={() => setMode("paste")}>
+                  <ClipboardPaste size={15} /> Paste usage
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={mode === "manual"}
+                  onClick={openManualSetup}
+                >
+                  <Gauge size={15} /> Manual setup
+                </button>
+              </div>
+            </div>
+            <span>Local time · {localZone}</span>
+          </div>
+
+          <div className="desk-input-panel">
+            {mode === "paste" ? (
+              <div className="paste-panel">
+                <label htmlFor="status-input">Paste Codex usage details</label>
+                <p className="paste-help" id="status-input-help">
+                  In Codex CLI, run <code>/status</code> and copy the quota lines. If no quota appears, copy a limit row from Settings → Usage.
+                </p>
+                <textarea
+                  id="status-input"
+                  value={statusText}
+                  onChange={(event) => setStatusText(event.target.value)}
+                  placeholder="Paste /status or Usage details"
+                  aria-describedby="status-input-help"
+                  rows={3}
+                />
+                <div className="desk-form-actions">
+                  <button className="button button-primary" type="button" onClick={handleParse}>Create countdown</button>
+                  <button className="text-button" type="button" onClick={() => setStatusText(SAMPLE_STATUS)}>Try sample</button>
+                </div>
+                <details className="quota-help-disclosure">
+                  <summary>Where do I find this?</summary>
+                  <p><strong>CLI:</strong> Run <code>/status</code> in Codex, then copy the 5-hour and weekly quota lines.</p>
+                  <p><strong>App:</strong> Open Settings → Usage and copy a limit row. Account details are not needed.</p>
+                </details>
+              </div>
+            ) : (
+              <div className="manual-panel">
+                <div className="manual-window">
+                  <span>5-hour window</span>
+                  <label htmlFor="short-remaining">5-hour remaining percentage</label>
+                  <div className="percent-input"><input id="short-remaining" type="number" min="0" max="100" value={manual.shortRemaining} onChange={(event) => setManual({ ...manual, shortRemaining: event.target.value })} /><b>%</b></div>
+                  <label htmlFor="short-reset">5-hour reset time</label>
+                  <input id="short-reset" type="datetime-local" value={manual.shortReset} onChange={(event) => setManual({ ...manual, shortReset: event.target.value })} />
+                </div>
+                <div className="manual-window">
+                  <span>Weekly window</span>
+                  <label htmlFor="weekly-remaining">Weekly remaining percentage</label>
+                  <div className="percent-input"><input id="weekly-remaining" type="number" min="0" max="100" value={manual.weeklyRemaining} onChange={(event) => setManual({ ...manual, weeklyRemaining: event.target.value })} /><b>%</b></div>
+                  <label htmlFor="weekly-reset">Weekly reset time</label>
+                  <input id="weekly-reset" type="datetime-local" value={manual.weeklyReset} onChange={(event) => setManual({ ...manual, weeklyReset: event.target.value })} />
+                </div>
+                <div className="desk-form-actions manual-actions">
+                  <button className="button button-primary" type="button" onClick={handleManualSave}>Save manual setup</button>
+                  <span>Times use your current browser timezone.</span>
+                </div>
+              </div>
+            )}
+            {error && (
+              <div className="desk-error" role="alert">
+                <span>{error}</span>
+                <button type="button" onClick={openManualSetup}>Use manual setup</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

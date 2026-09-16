@@ -1,5 +1,5 @@
 export type UsageWindow = {
-  remainingPercent: number;
+  remainingPercent?: number;
   resetAt: string;
 };
 
@@ -43,6 +43,29 @@ export function parseResetTimestamp(value: string): Date | undefined {
   if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(normalized)) {
     const isoDate = new Date(normalized);
     return Number.isNaN(isoDate.getTime()) ? undefined : isoDate;
+  }
+
+  const chineseMatch = normalized.match(
+    /^(\d{4})年(\d{1,2})月(\d{1,2})日\s+(\d{1,2}):(\d{2})$/,
+  );
+  if (chineseMatch) {
+    const [, yearText, monthText, dayText, hourText, minuteText] = chineseMatch;
+    const year = Number(yearText);
+    const month = Number(monthText) - 1;
+    const day = Number(dayText);
+    const hour = Number(hourText);
+    const minute = Number(minuteText);
+    if (month < 0 || month > 11 || hour > 23 || minute > 59) return undefined;
+
+    const date = new Date(year, month, day, hour, minute, 0, 0);
+    if (
+      date.getFullYear() !== year ||
+      date.getMonth() !== month ||
+      date.getDate() !== day ||
+      date.getHours() !== hour ||
+      date.getMinutes() !== minute
+    ) return undefined;
+    return date;
   }
 
   const humanMatch = normalized.match(
@@ -186,7 +209,7 @@ export function convertResetTime(
 
 const ansiCsiPattern = /\u001B\[[0-?]*[ -/]*[@-~]/g;
 const ansiOscPattern = /\u001B\][^\u0007]*(?:\u0007|\u001B\\)/g;
-const windowLabelPattern = /\b(?:5h|5-hour|five-hour|weekly|7d|7-day)\b/i;
+const windowLabelPattern = /(?:\b(?:5h|5-hour|five-hour|weekly|7d|7-day)\b|5\s*小时使用限额|每周使用限额)/i;
 
 function normalizeStatusInput(input: string) {
   return input
@@ -264,28 +287,41 @@ function parseCompactResetTimestamp(value: string, now: Date) {
 }
 
 function parseWindow(block: string, now: Date): UsageWindow | undefined {
-  const percentMatch = block.match(/(\d{1,3}(?:\.\d+)?)\s*%\s*(left|remaining|used|consumed)?/i);
-  const resetMatch = block.match(/resets?\s*(?:at\s+)?[:=-]?\s*(.+)$/i);
+  const englishPercent = block.match(/(\d{1,3}(?:\.\d+)?)\s*%\s*(left|remaining|used|consumed)?/i);
+  const chinesePercent = block.match(/(剩余|已用|已使用)\s*(\d{1,3}(?:\.\d+)?)\s*%/);
+  const resetMatch = block.match(
+    /(?:resets?\s*(?:at\s+)?[:=-]?|重置时间\s*[:：]?)\s*(.+?)(?=\s+(?:剩余|已用|已使用)\s*\d{1,3}(?:\.\d+)?\s*%|$)/i,
+  );
 
-  if (!percentMatch || !resetMatch) return undefined;
+  if (!resetMatch) return undefined;
 
-  const reportedPercent = Number(percentMatch[1]);
-  const qualifier = percentMatch[2]?.toLowerCase();
-  const remainingPercent = qualifier === "used" || qualifier === "consumed"
-    ? 100 - reportedPercent
-    : reportedPercent;
+  const percentMatch = englishPercent ?? chinesePercent;
+  let remainingPercent: number | undefined;
+  if (percentMatch) {
+    const reportedPercent = Number(englishPercent?.[1] ?? chinesePercent?.[2]);
+    const qualifier = (englishPercent?.[2] ?? chinesePercent?.[1])?.toLowerCase();
+    remainingPercent = qualifier === "used" ||
+      qualifier === "consumed" ||
+      qualifier === "已用" ||
+      qualifier === "已使用"
+      ? 100 - reportedPercent
+      : reportedPercent;
+    if (!Number.isFinite(remainingPercent) || remainingPercent < 0 || remainingPercent > 100) {
+      return undefined;
+    }
+  }
   const parsedDate = parseCompactResetTimestamp(resetMatch[1], now);
-  if (!parsedDate || !Number.isFinite(remainingPercent) || remainingPercent < 0 || remainingPercent > 100) return undefined;
+  if (!parsedDate) return undefined;
 
   return {
-    remainingPercent,
+    ...(remainingPercent === undefined ? {} : { remainingPercent }),
     resetAt: parsedDate.toISOString(),
   };
 }
 
 function detectWindowKind(line: string) {
-  if (/\b(?:5h|5-hour|five-hour)\b/i.test(line)) return "short" as const;
-  if (/\b(?:weekly|7d|7-day)\b/i.test(line)) return "weekly" as const;
+  if (/(?:\b(?:5h|5-hour|five-hour)\b|5\s*小时使用限额)/i.test(line)) return "short" as const;
+  if (/(?:\b(?:weekly|7d|7-day)\b|每周使用限额)/i.test(line)) return "weekly" as const;
   return undefined;
 }
 
@@ -299,7 +335,10 @@ function parseUsageBlocks(input: string, now: Date) {
     if (kind) {
       active = { kind, text: line };
       blocks.push(active);
-    } else if (active && !parseWindow(active.text, now)) {
+    } else if (
+      active &&
+      (!parseWindow(active.text, now) || /(?:\d{1,3}(?:\.\d+)?\s*%|(?:剩余|已用|已使用)\s*\d)/i.test(line))
+    ) {
       active.text += ` ${line}`;
     }
   }
@@ -341,7 +380,7 @@ export function formatCountdown(target: Date, now = new Date()) {
   const remainingMs = target.getTime() - now.getTime();
 
   if (!Number.isFinite(remainingMs) || remainingMs <= 0) {
-    return { label: "Check Codex now", expired: true, totalSeconds: 0 };
+    return { label: "Reset time reached", expired: true, totalSeconds: 0 };
   }
 
   const totalSeconds = Math.floor(remainingMs / 1_000);

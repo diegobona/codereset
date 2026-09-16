@@ -30,7 +30,7 @@ describe("site readability", () => {
     expect(ruleFor(".site-header")).toMatch(/height:\s*68px/);
     expect(ruleFor(".home-intro")).toMatch(/padding-block:\s*40px 24px/);
     expect(ruleFor(".home-intro h1")).toMatch(
-      /font-size:\s*clamp\(48px,\s*5\.3vw,\s*72px\)/,
+      /font:\s*800 clamp\(46px,\s*5\.1vw,\s*70px\)\/\.95 var\(--sans\)/,
     );
     expect(ruleFor(".global-reset-primary")).toMatch(
       /padding:\s*17px 20px 15px/,

@@ -28,27 +28,35 @@ function loadTrustPage(moduleName: string): Promise<TrustPageModule> {
 }
 
 describe("HomePage", () => {
-  it("leads with the visitor's reset question and the real reset desk", async () => {
+  it("leads with the visitor's personal quota task and the real reset desk", async () => {
     const HomePage = await loadHomePage();
     const { container } = render(<HomePage />);
 
     expect(screen.getByRole("heading", {
       level: 1,
-      name: /when does my codex limit reset/i,
+      name: /my codex quota/i,
     })).toBeInTheDocument();
-    expect(screen.getByLabelText("Paste Codex status")).toBeInTheDocument();
+    expect(screen.getByText(
+      "Track your 5-hour and weekly reset times with a private countdown.",
+    )).toBeInTheDocument();
+    expect(screen.getAllByText("Stored only in this browser")).toHaveLength(1);
+    expect(screen.getByLabelText("Paste Codex usage details")).toBeInTheDocument();
     expect(container.querySelector(".console-wrap")).toBeNull();
   });
 
-  it("clearly labels the personal quota workspace", async () => {
+  it("puts the personal quota workspace before the public reset signal", async () => {
     const HomePage = await loadHomePage();
-    render(<HomePage />);
+    const { container } = render(<HomePage />);
 
-    const personalQuota = screen.getByRole("region", { name: "My personal quota" });
+    const personalQuota = screen.getByRole("region", { name: "My Codex quota" });
+    const publicReset = screen.getByRole("region", { name: "Public reset signal" });
     expect(within(personalQuota).getByRole("heading", {
       level: 2,
-      name: "My personal quota",
+      name: "Add your quota reset time",
     })).toBeInTheDocument();
+    expect(personalQuota.compareDocumentPosition(publicReset) & Node.DOCUMENT_POSITION_FOLLOWING)
+      .toBeTruthy();
+    expect(container.querySelector(".home-desk")).not.toBeNull();
   });
 
   it("shows a compact public global reset signal without confusing it with account quota", async () => {

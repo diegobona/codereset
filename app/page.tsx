@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ShieldCheck } from "lucide-react";
 import { AlertOffer } from "@/components/alert-offer";
 import { AnalyticsBootstrap } from "@/components/analytics-client";
 import { BrandMark } from "@/components/icons";
@@ -63,17 +63,31 @@ export default function HomePage() {
         </Link>
       </header>
 
-      <section className="home-intro shell" aria-labelledby="hero-title">
-        <h1 id="hero-title">When does my Codex limit reset?</h1>
-        <p>See the latest public reset signal, or paste your Codex /status for a private countdown.</p>
-      </section>
-
-      <div className="home-global-reset shell">
-        <GlobalResetCard />
+      <div className="home-intro shell">
+        <div className="home-intro-copy">
+          <span className="home-kicker">PERSONAL QUOTA TRACKER</span>
+          <h1 id="hero-title">My Codex quota</h1>
+          <p>Track your 5-hour and weekly reset times with a private countdown.</p>
+        </div>
+        <div className="home-privacy-badge">
+          <ShieldCheck size={18} />
+          <span>Stored only in this browser</span>
+        </div>
       </div>
 
-      <section className="home-desk shell" id="reset-desk" aria-labelledby="personal-quota-title">
+      <section className="home-desk shell" id="reset-desk" aria-label="My Codex quota">
         <ResetDesk />
+      </section>
+
+      <section className="home-global-reset shell" aria-label="Public reset signal">
+        <div className="home-section-heading">
+          <div>
+            <span>PUBLIC SIGNAL</span>
+            <h2>Global reset status</h2>
+          </div>
+          <p>Community-wide reset announcements are separate from your personal quota timer.</p>
+        </div>
+        <GlobalResetCard />
       </section>
 
       <section className="home-guides shell" aria-labelledby="common-questions-title">

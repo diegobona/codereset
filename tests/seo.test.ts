@@ -185,7 +185,7 @@ describe("structured data builders", () => {
       name: "CodeReset",
       url: "https://codereset.dev/",
       description:
-        "Paste your Codex /status to see your five-hour and weekly reset countdowns and add a calendar reminder.",
+        "Paste your Codex Usage details to see five-hour and weekly reset countdowns and add a calendar reminder.",
       inLanguage: "en",
     });
   });

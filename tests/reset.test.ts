@@ -80,6 +80,29 @@ resets at 2099-09-20T09:00:00Z`);
     });
   });
 
+  it("parses the reset-only row copied from the Chinese Codex usage page", () => {
+    const result = parseUsageStatus(`每周使用限额
+重置时间：2026年9月19日 17:04`);
+
+    expect(result.weeklyWindow?.remainingPercent).toBeUndefined();
+    const resetAt = new Date(result.weeklyWindow!.resetAt);
+    expect([
+      resetAt.getFullYear(),
+      resetAt.getMonth(),
+      resetAt.getDate(),
+      resetAt.getHours(),
+      resetAt.getMinutes(),
+    ]).toEqual([2026, 8, 19, 17, 4]);
+  });
+
+  it("parses the remaining percentage from a complete Chinese usage row", () => {
+    const result = parseUsageStatus(`每周使用限额
+重置时间：2026年9月19日 17:04
+剩余 42%`);
+
+    expect(result.weeklyWindow?.remainingPercent).toBe(42);
+  });
+
   it("parses the compact time and date shown by Codex", () => {
     const now = new Date(2026, 8, 15, 10, 0, 0);
     const result = parseUsageStatus(
@@ -168,7 +191,7 @@ describe("formatCountdown", () => {
     const now = new Date("2026-09-15T00:00:00.000Z");
 
     expect(formatCountdown(new Date("2026-09-14T23:59:00.000Z"), now)).toEqual({
-      label: "Check Codex now",
+      label: "Reset time reached",
       expired: true,
       totalSeconds: 0,
     });
