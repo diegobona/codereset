@@ -10,7 +10,8 @@
     "lint": "eslint . --max-warnings=0",
     "test": "vitest run",
     "content:check": "vite-node scripts/validate-content.mjs",
-    "seo:check": "npm run build && node scripts/validate-export.mjs"
+    "seo:check": "npm run build && node scripts/validate-export.mjs",
+    "analytics:smoke": "node scripts/verify-analytics-endpoint.mjs"
   },
   "dependencies": {
     "gray-matter": "^4.0.3",

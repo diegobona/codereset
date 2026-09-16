@@ -1,0 +1,11 @@
+{
+  "name": "codereset",
+  "pages_build_output_dir": "./out",
+  "compatibility_date": "2026-09-16",
+  "analytics_engine_datasets": [
+    {
+      "binding": "SEO_EVENTS",
+      "dataset": "codereset_events"
+    }
+  ]
+}

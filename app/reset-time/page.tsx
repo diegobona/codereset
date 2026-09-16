@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, ShieldCheck } from "lucide-react";
 
+import { AnalyticsBootstrap } from "@/components/analytics-client";
 import { BrandMark } from "@/components/icons";
 import { ResetTimeConverter } from "@/components/tools/reset-time-converter";
 import { absoluteUrl, buildMetadata } from "@/lib/seo/metadata";
@@ -35,6 +36,7 @@ export const metadata: Metadata = buildMetadata({
 export default function ResetTimePage() {
   return (
     <main className="reset-time-page">
+      <AnalyticsBootstrap page="reset-time" />
       <header className="site-header shell guide-header">
         <Link className="brand" href="/" aria-label="CodeReset home">
           <BrandMark className="brand-mark" />

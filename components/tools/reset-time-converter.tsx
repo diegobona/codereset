@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { CalendarPlus } from "lucide-react";
 
-import { trackEvent } from "@/lib/analytics/events";
+import { deviceClass, trackEvent } from "@/lib/analytics/events";
 import {
   convertResetTime,
   createCalendarEvent,
@@ -61,11 +61,18 @@ export function ResetTimeConverter() {
 
     setError("");
     setResult({ resetAt, value });
+    trackEvent("reset_time_convert", {
+      page: "reset-time",
+      device: deviceClass(),
+    });
   }
 
   function downloadReminder() {
     if (!result) return;
-    trackEvent("ics_download");
+    trackEvent("ics_download", {
+      page: "reset-time",
+      device: deviceClass(),
+    });
     const file = new Blob(
       [
         createCalendarEvent({

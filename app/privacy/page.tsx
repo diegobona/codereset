@@ -6,6 +6,7 @@ import {
   PrivacyControls,
 } from "@/components/analytics-client";
 import { BrandMark } from "@/components/icons";
+import { ALLOWED_EVENTS } from "@/lib/analytics/events";
 import { absoluteUrl, buildMetadata } from "@/lib/seo/metadata";
 
 export const metadata: Metadata = buildMetadata({
@@ -34,21 +35,7 @@ export const metadata: Metadata = buildMetadata({
   },
 });
 
-const productEventNames = [
-  "first_visit",
-  "desk_start",
-  "manual_setup_start",
-  "manual_setup_complete",
-  "parser_attempt",
-  "parser_success",
-  "desk_complete",
-  "ics_download",
-  "share_card_download",
-  "guide_pageview",
-  "guide_to_desk_click",
-  "return_7d",
-  "return_30d",
-];
+const productEventNames = ALLOWED_EVENTS;
 
 export default function PrivacyPage() {
   return (
@@ -75,7 +62,7 @@ export default function PrivacyPage() {
             named product actions and coarse page and device categories.
           </p>
           <div className="guide-meta">
-            <span>LAST REVIEWED / 2026-09-15</span>
+            <span>LAST REVIEWED / 2026-09-16</span>
             <span>NO ACCOUNT CONNECTION</span>
           </div>
         </header>
@@ -113,7 +100,7 @@ export default function PrivacyPage() {
               <h2>Anonymous event fields</h2>
               <p>
                 A valid event contains an allowlisted event name and may contain
-                only <code>page</code> (<code>home</code>, <code>guide</code>, or <code>privacy</code>)
+                only <code>page</code> (<code>home</code>, <code>guide</code>, <code>privacy</code>, or <code>reset-time</code>)
                 and a coarse <code>device</code> class (<code>mobile</code>, <code>tablet</code>, or <code>desktop</code>).
               </p>
               <p>Allowed event names: {productEventNames.join(", ")}.</p>

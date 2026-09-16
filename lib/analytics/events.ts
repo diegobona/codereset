@@ -12,9 +12,11 @@ export const ALLOWED_EVENTS = [
   "guide_to_desk_click",
   "return_7d",
   "return_30d",
+  "reset_time_convert",
+  "analytics_probe",
 ] as const;
 
-export const PAGE_KINDS = ["home", "guide", "privacy"] as const;
+export const PAGE_KINDS = ["home", "guide", "privacy", "reset-time"] as const;
 export const DEVICE_CLASSES = ["mobile", "tablet", "desktop"] as const;
 
 export type AnalyticsEventName = (typeof ALLOWED_EVENTS)[number];

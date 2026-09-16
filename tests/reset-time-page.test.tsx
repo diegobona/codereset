@@ -7,6 +7,15 @@ import HomePage from "@/app/page";
 import { ResetTimeConverter } from "@/components/tools/reset-time-converter";
 import { publishedRoutes } from "@/lib/content/route-manifest";
 
+function blobText(blob: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => resolve(String(reader.result)));
+    reader.addEventListener("error", () => reject(reader.error));
+    reader.readAsText(blob);
+  });
+}
+
 describe("ResetTimePage", () => {
   beforeEach(() => {
     window.localStorage.setItem("codereset:analytics:disabled", "true");
@@ -41,6 +50,31 @@ describe("ResetTimePage", () => {
     });
   });
 
+  it("initializes anonymous measurement under the reset-time page kind", async () => {
+    const { ANALYTICS_STORAGE_KEYS, setAnalyticsOptOut } = await import(
+      "@/lib/analytics/events"
+    );
+    setAnalyticsOptOut(false);
+    window.localStorage.removeItem(ANALYTICS_STORAGE_KEYS.firstSeenDate);
+    window.sessionStorage.clear();
+    const payloads: string[] = [];
+    Object.defineProperty(window.navigator, "sendBeacon", {
+      configurable: true,
+      value: vi.fn((_url: string, blob: Blob) => {
+        void blobText(blob).then((text) => payloads.push(text));
+        return true;
+      }),
+    });
+
+    render(<ResetTimePage />);
+
+    await vi.waitFor(() => expect(payloads).toHaveLength(1));
+    expect(JSON.parse(payloads[0])).toMatchObject({
+      event: "first_visit",
+      page: "reset-time",
+    });
+  });
+
   it("converts an absolute timestamp with daylight-saving rules", () => {
     render(<ResetTimeConverter />);
 
@@ -57,6 +91,37 @@ describe("ResetTimePage", () => {
     expect(within(result).getByText("1:00 PM")).toBeInTheDocument();
     expect(within(result).getByText(/EDT · UTC-04:00/)).toBeInTheDocument();
     expect(within(result).getByText("Same calendar day as UTC")).toBeInTheDocument();
+  });
+
+  it("records only a coarse successful-conversion event", async () => {
+    window.localStorage.removeItem("codereset:analytics:disabled");
+    window.sessionStorage.clear();
+    const payloads: string[] = [];
+    Object.defineProperty(window.navigator, "sendBeacon", {
+      configurable: true,
+      value: vi.fn((_url: string, blob: Blob) => {
+        void blobText(blob).then((text) => payloads.push(text));
+        return true;
+      }),
+    });
+    render(<ResetTimeConverter />);
+
+    fireEvent.change(screen.getByLabelText("Reset timestamp"), {
+      target: { value: "2026-07-15T17:00:00Z" },
+    });
+    fireEvent.change(screen.getByLabelText("Display timezone"), {
+      target: { value: "America/New_York" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Convert time" }));
+
+    await vi.waitFor(() => expect(payloads).toHaveLength(1));
+    expect(JSON.parse(payloads[0])).toEqual({
+      event: "reset_time_convert",
+      page: "reset-time",
+      device: expect.stringMatching(/^(mobile|tablet|desktop)$/),
+    });
+    expect(payloads[0]).not.toContain("2026-07-15");
+    expect(payloads[0]).not.toContain("America/New_York");
   });
 
   it("rejects an ambiguous timestamp without a timezone", () => {

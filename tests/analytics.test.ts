@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -43,6 +44,8 @@ describe("analytics payload validation", () => {
       "guide_to_desk_click",
       "return_7d",
       "return_30d",
+      "reset_time_convert",
+      "analytics_probe",
     ]);
     expect(
       validateAnalyticsPayload({
@@ -61,6 +64,20 @@ describe("analytics payload validation", () => {
     expect(
       validateAnalyticsPayload({ event: "parser_success", device: "phone-xl" }),
     ).toEqual({ ok: false });
+    expect(
+      validateAnalyticsPayload({
+        event: "reset_time_convert",
+        page: "reset-time",
+        device: "desktop",
+      }),
+    ).toEqual({
+      ok: true,
+      value: {
+        event: "reset_time_convert",
+        page: "reset-time",
+        device: "desktop",
+      },
+    });
   });
 
   it.each([
@@ -135,7 +152,10 @@ describe("Cloudflare Pages analytics endpoint", () => {
   });
 
   it.each([
-    ["non-POST requests", new Request("https://codereset.dev/api/events")],
+    [
+      "unsupported methods",
+      new Request("https://codereset.dev/api/events", { method: "DELETE" }),
+    ],
     [
       "non-JSON requests",
       validRequest(JSON.stringify({ event: "first_visit" }), {
@@ -158,6 +178,29 @@ describe("Cloudflare Pages analytics endpoint", () => {
     });
 
     expect(response.status).toBeGreaterThanOrEqual(400);
+    expect(writeDataPoint).not.toHaveBeenCalled();
+  });
+
+  it("reports whether the production binding is ready without writing", async () => {
+    const { onRequest } = await import("@/functions/api/events");
+    const writeDataPoint = vi.fn();
+
+    const ready = await onRequest({
+      request: new Request("https://codereset.dev/api/events"),
+      env: { SEO_EVENTS: { writeDataPoint } },
+    });
+    const unavailable = await onRequest({
+      request: new Request("https://codereset.dev/api/events"),
+      env: {},
+    });
+
+    expect(ready.status).toBe(200);
+    await expect(ready.json()).resolves.toEqual({ ok: true, status: "ready" });
+    expect(unavailable.status).toBe(503);
+    await expect(unavailable.json()).resolves.toEqual({
+      ok: false,
+      status: "analytics_unavailable",
+    });
     expect(writeDataPoint).not.toHaveBeenCalled();
   });
 
@@ -195,6 +238,20 @@ describe("Cloudflare Pages analytics endpoint", () => {
     await expect(response.json()).resolves.toEqual({
       ok: false,
       status: "analytics_unavailable",
+    });
+  });
+});
+
+describe("Cloudflare Pages analytics configuration", () => {
+  it("binds the production dataset to the Pages Function", () => {
+    const config = JSON.parse(readFileSync("wrangler.jsonc", "utf8"));
+
+    expect(config).toMatchObject({
+      name: "codereset",
+      pages_build_output_dir: "./out",
+      analytics_engine_datasets: [
+        { binding: "SEO_EVENTS", dataset: "codereset_events" },
+      ],
     });
   });
 });

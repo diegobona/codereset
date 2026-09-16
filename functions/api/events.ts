@@ -36,6 +36,14 @@ function analyticsBlobs(payload: AnalyticsPayload) {
 }
 
 export async function onRequest({ request, env }: EventContext) {
+  if (request.method === "GET") {
+    return env.SEO_EVENTS
+      ? jsonResponse({ ok: true, status: "ready" }, 200)
+      : jsonResponse(
+          { ok: false, status: "analytics_unavailable" },
+          503,
+        );
+  }
   if (request.method !== "POST") {
     return jsonResponse({ ok: false }, 405);
   }
