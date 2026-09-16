@@ -16,6 +16,7 @@ import {
   getPaceState,
   parseUsageStatusDetailed,
   type ParsedUsage,
+  type ScopedUsageWindow,
   type UsageWindow,
 } from "@/lib/reset";
 import { trackEvent } from "@/lib/analytics/events";
@@ -89,8 +90,24 @@ function decodeQuota(snapshot: string): ParsedUsage {
     const nextUsage = {
       shortWindow: normalizeWindow(parsed.shortWindow),
       weeklyWindow: normalizeWindow(parsed.weeklyWindow),
+      scopedWindows: Array.isArray(parsed.scopedWindows)
+        ? parsed.scopedWindows.flatMap((candidate): ScopedUsageWindow[] => {
+          if (!candidate || typeof candidate !== "object") return [];
+          const normalized = normalizeWindow(candidate);
+          const scope = typeof candidate.scope === "string" ? candidate.scope.trim() : "";
+          if (
+            !normalized ||
+            !scope ||
+            scope.length > 80 ||
+            (candidate.kind !== "short" && candidate.kind !== "weekly")
+          ) return [];
+          return [{ ...normalized, kind: candidate.kind, scope }];
+        })
+        : [],
     };
-    return nextUsage.shortWindow || nextUsage.weeklyWindow ? nextUsage : {};
+    return nextUsage.shortWindow || nextUsage.weeklyWindow || nextUsage.scopedWindows.length
+      ? nextUsage
+      : {};
   } catch {
     return {};
   }
@@ -131,11 +148,13 @@ function toWindow(remaining: string, reset: string): UsageWindow | undefined {
 
 function WindowCard({
   kind,
+  scope,
   window,
   now,
   onCalendar,
 }: {
   kind: "5-hour" | "weekly";
+  scope?: string;
   window: UsageWindow;
   now: Date;
   onCalendar: (reminderMinutes: ReminderMinutes) => void;
@@ -160,7 +179,7 @@ function WindowCard({
   return (
     <article className="window-card">
       <div className="window-card-head">
-        <span>{kind === "5-hour" ? "5-hour quota" : "Weekly quota"}</span>
+        <span>{scope ? `${scope} · ` : ""}{kind === "5-hour" ? "5-hour quota" : "Weekly quota"}</span>
         <b data-pace={countdown.expired ? "reached" : (pace ?? "countdown")}>
           {countdown.expired ? "Reached" : (pace ? pace.replace("-", " ") : "COUNTDOWN")}
         </b>
@@ -181,7 +200,7 @@ function WindowCard({
       )}
       <div className="calendar-controls">
         <select
-          aria-label={`${kind} reminder time`}
+          aria-label={`${scope ? `${scope} ` : ""}${kind} reminder time`}
           value={reminderMinutes}
           onChange={(event) => setReminderMinutes(Number(event.target.value) as ReminderMinutes)}
         >
@@ -223,7 +242,9 @@ export function ResetDesk() {
     getQuotaServerSnapshot,
   );
   const usage = useMemo(() => decodeQuota(quotaSnapshot), [quotaSnapshot]);
-  const hasUsage = Boolean(usage.shortWindow || usage.weeklyWindow);
+  const hasUsage = Boolean(
+    usage.shortWindow || usage.weeklyWindow || usage.scopedWindows?.length,
+  );
   const localZone = useMemo(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone || "Local timezone",
     [],
@@ -250,7 +271,7 @@ export function ResetDesk() {
     trackEvent("parser_attempt", { page: "home" });
     const parseResult = parseUsageStatusDetailed(statusText);
     const parsed = parseResult.usage;
-    if (!parsed.shortWindow && !parsed.weeklyWindow) {
+    if (!parsed.shortWindow && !parsed.weeklyWindow && !parsed.scopedWindows?.length) {
       const parseErrors = {
         "limits-unavailable": "Codex has not loaded your limits yet. Wait a moment, then copy /status or Usage details again.",
         "missing-percentage": "We found a quota name, but no reset time. Copy the full quota lines from /status or Settings → Usage.",
@@ -341,6 +362,23 @@ export function ResetDesk() {
             {usage.weeklyWindow && (
               <WindowCard kind="weekly" window={usage.weeklyWindow} now={now} onCalendar={(minutes) => downloadReminder(usage.weeklyWindow!, "Codex weekly reset", minutes)} />
             )}
+            {usage.scopedWindows?.map((scopedWindow) => {
+              const kind = scopedWindow.kind === "short" ? "5-hour" : "weekly";
+              return (
+                <WindowCard
+                  key={`${scopedWindow.scope}:${scopedWindow.kind}:${scopedWindow.resetAt}`}
+                  kind={kind}
+                  scope={scopedWindow.scope}
+                  window={scopedWindow}
+                  now={now}
+                  onCalendar={(minutes) => downloadReminder(
+                    scopedWindow,
+                    `${scopedWindow.scope} ${kind} reset`,
+                    minutes,
+                  )}
+                />
+              );
+            })}
           </div>
           <p className="result-disclaimer"><Bell size={14} /> A finished countdown is a reminder to check Codex. It cannot confirm that your quota recovered.</p>
         </div>

@@ -3,9 +3,15 @@ export type UsageWindow = {
   resetAt: string;
 };
 
+export type ScopedUsageWindow = UsageWindow & {
+  kind: "short" | "weekly";
+  scope: string;
+};
+
 export type ParsedUsage = {
   shortWindow?: UsageWindow;
   weeklyWindow?: UsageWindow;
+  scopedWindows?: ScopedUsageWindow[];
 };
 
 export type UsageParseIssue =
@@ -325,15 +331,32 @@ function detectWindowKind(line: string) {
   return undefined;
 }
 
+function detectScopeLabel(line: string) {
+  if (detectWindowKind(line)) return undefined;
+  const match = line.match(/^(.{1,80}?)\s+limits?\s*:\s*$/i);
+  return match?.[1].trim() || undefined;
+}
+
 function parseUsageBlocks(input: string, now: Date) {
   const result: ParsedUsage = {};
-  const blocks: Array<{ kind: "short" | "weekly"; text: string }> = [];
+  const blocks: Array<{
+    kind: "short" | "weekly";
+    scope?: string;
+    text: string;
+  }> = [];
   let active: (typeof blocks)[number] | undefined;
+  let scope: string | undefined;
 
   for (const line of normalizeStatusInput(input)) {
+    const scopeLabel = detectScopeLabel(line);
+    if (scopeLabel) {
+      scope = scopeLabel;
+      active = undefined;
+      continue;
+    }
     const kind = detectWindowKind(line);
     if (kind) {
-      active = { kind, text: line };
+      active = { kind, scope, text: line };
       blocks.push(active);
     } else if (
       active &&
@@ -345,8 +368,15 @@ function parseUsageBlocks(input: string, now: Date) {
 
   for (const block of blocks) {
     const window = parseWindow(block.text, now);
-    if (block.kind === "short" && window) result.shortWindow = window;
-    if (block.kind === "weekly" && window) result.weeklyWindow = window;
+    if (!window) continue;
+    if (block.scope) {
+      result.scopedWindows ??= [];
+      result.scopedWindows.push({ ...window, kind: block.kind, scope: block.scope });
+    } else if (block.kind === "short") {
+      result.shortWindow = window;
+    } else {
+      result.weeklyWindow = window;
+    }
   }
 
   return { blocks, result };
@@ -358,7 +388,7 @@ export function parseUsageStatusDetailed(
 ): UsageParseResult {
   const normalized = normalizeStatusInput(input).join(" ");
   const { blocks, result: usage } = parseUsageBlocks(input, now);
-  if (usage.shortWindow || usage.weeklyWindow) return { usage };
+  if (usage.shortWindow || usage.weeklyWindow || usage.scopedWindows?.length) return { usage };
 
   if (/\blimits?\b[^\n]*(?:data\s+)?(?:not available|unavailable|loading)/i.test(normalized)) {
     return { issue: "limits-unavailable", usage };

@@ -62,6 +62,27 @@ Weekly limit: 41% left · resets 2099-09-20T09:00:00Z`,
     expect(screen.getByRole("status")).toHaveTextContent("Quota saved on this device");
   });
 
+  it("shows account and model-specific CLI limits as separate quota cards", async () => {
+    render(<ResetDesk />);
+
+    fireEvent.change(screen.getByLabelText("Paste Codex usage details"), {
+      target: {
+        value: `Weekly limit: [████░░░░░░] 39% left (resets 17:04 on 19 Sep 2099)
+GPT-5.3-Codex-Spark limit:
+5h limit: [██████████] 100% left (resets 01:37 on 17 Sep 2099)
+Weekly limit: [██████████] 100% left (resets 20:37 on 23 Sep 2099)`,
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create countdown" }));
+
+    expect(await screen.findByText("Weekly quota")).toBeInTheDocument();
+    expect(screen.getByText("GPT-5.3-Codex-Spark · 5-hour quota")).toBeInTheDocument();
+    expect(screen.getByText("GPT-5.3-Codex-Spark · Weekly quota")).toBeInTheDocument();
+    expect(screen.getByText("39%")).toBeInTheDocument();
+    expect(screen.getAllByText("100%")).toHaveLength(2);
+    expect(screen.getAllByText("Resets in")).toHaveLength(3);
+  });
+
   it("turns a reset-only row copied from Codex Usage into a countdown", async () => {
     render(<ResetDesk />);
 

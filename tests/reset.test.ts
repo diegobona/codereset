@@ -37,6 +37,24 @@ Weekly limit: 41% left · resets 2026-09-20T09:00:00+08:00`);
     expect(result.weeklyWindow?.remainingPercent).toBe(41);
   });
 
+  it("keeps account and model-specific limits separate in real CLI status output", () => {
+    const now = new Date(2026, 8, 16, 10, 0, 0);
+    const result = parseUsageStatus(`Weekly limit: [████░░░░░░] 39% left (resets 17:04 on 19 Sep)
+GPT-5.3-Codex-Spark limit:
+5h limit: [██████████] 100% left (resets 01:37 on 17 Sep)
+Weekly limit: [██████████] 100% left (resets 20:37 on 23 Sep)`, now);
+
+    expect(result.weeklyWindow?.remainingPercent).toBe(39);
+    expect(result.scopedWindows?.map(({ scope, kind, remainingPercent }) => ({
+      scope,
+      kind,
+      remainingPercent,
+    }))).toEqual([
+      { scope: "GPT-5.3-Codex-Spark", kind: "short", remainingPercent: 100 },
+      { scope: "GPT-5.3-Codex-Spark", kind: "weekly", remainingPercent: 100 },
+    ]);
+  });
+
   it("does not invent windows from malformed text", () => {
     expect(parseUsageStatus("quota vibes: probably fine")).toEqual({});
   });
