@@ -140,6 +140,22 @@ describe("HomePage", () => {
       "href",
       "/guides/banked-resets",
     );
+    expect(screen.getAllByRole("link").filter((link) => link.getAttribute("href") === "/guides"))
+      .toHaveLength(1);
+    expect(screen.getByRole("link", { name: /browse all guides/i })).toHaveAttribute(
+      "href",
+      "/guides",
+    );
+    for (const slug of [
+      "what-counts-toward-codex-usage",
+      "why-codex-shows-multiple-limits",
+      "codex-local-cloud-shared-limits",
+      "switch-codex-models-save-usage",
+      "codex-limit-reached",
+      "make-codex-usage-last-longer",
+    ]) {
+      expect(container.querySelector(`a[href="/guides/${slug}"]`)).toBeNull();
+    }
   });
 
   it("uses a compact footer without affiliation, trademark, or marketing copy", async () => {
@@ -161,6 +177,57 @@ describe("HomePage", () => {
     expect(screen.getByText("$9", { exact: true })).toBeInTheDocument();
     expect(screen.getByText("Email + SMS delivery", { exact: true })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /join early access/i })).toBeInTheDocument();
+  });
+});
+
+describe("GuidesPage", () => {
+  it("publishes one compact, categorized entry point for every guide", async () => {
+    const [{ default: GuidesPage, metadata }, { guides }, { publishedRoutes }] =
+      await Promise.all([
+        import("@/app/guides/page"),
+        import("@/lib/content"),
+        import("@/lib/content/route-manifest"),
+      ]);
+    const { container } = render(<GuidesPage />);
+
+    expect(screen.getByRole("heading", { level: 1, name: "Codex usage guides" }))
+      .toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole("region", { name: "Codex usage rules" }))
+      .toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Codex how-to guides" }))
+      .toBeInTheDocument();
+
+    for (const guide of guides) {
+      const regionName = guide.intent === "operation"
+        ? "Codex how-to guides"
+        : "Codex usage rules";
+      expect(
+        within(screen.getByRole("region", { name: regionName }))
+          .getByRole("link", { name: new RegExp(guide.title, "i") }),
+      ).toHaveAttribute("href", `/guides/${guide.slug}`);
+    }
+
+    expect(screen.getByRole("link", { name: /open my quota tracker/i }))
+      .toHaveAttribute("href", "/#reset-desk");
+    expect(metadata.alternates?.canonical).toBe("https://codereset.dev/guides");
+    expect(metadata.openGraph).toMatchObject({
+      url: "https://codereset.dev/guides",
+      images: [expect.objectContaining({ width: 1200, height: 630 })],
+    });
+    const schemas = Array.from(
+      container.querySelectorAll<HTMLScriptElement>('script[type="application/ld+json"]'),
+    ).map((script) => JSON.parse(script.textContent ?? "null") as { "@type"?: string });
+    expect(schemas).toEqual(
+      expect.arrayContaining([expect.objectContaining({ "@type": "CollectionPage" })]),
+    );
+    expect(publishedRoutes).toContainEqual({
+      pathname: "/guides",
+      kind: "collection",
+      slug: null,
+      lastModified: "2026-09-16",
+      indexable: true,
+    });
   });
 });
 

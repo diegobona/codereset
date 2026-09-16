@@ -14,6 +14,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
         ? 1
         : route.kind === "tool"
           ? 0.85
+          : route.kind === "collection"
+            ? 0.8
           : route.kind === "guide"
             ? 0.75
             : 0.5,

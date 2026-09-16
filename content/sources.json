@@ -3,7 +3,7 @@
     "id": "openai-codex-pricing",
     "publisher": "OpenAI",
     "tier": 1,
-    "checkedAt": "2026-09-15",
+    "checkedAt": "2026-09-16",
     "evidenceType": "web-page",
     "url": "https://learn.chatgpt.com/docs/pricing"
   },
@@ -11,8 +11,16 @@
     "id": "openai-codex-cli",
     "publisher": "OpenAI",
     "tier": 1,
-    "checkedAt": "2026-09-15",
+    "checkedAt": "2026-09-16",
     "evidenceType": "web-page",
     "url": "https://learn.chatgpt.com/docs/codex/cli"
+  },
+  {
+    "id": "openai-developer-commands",
+    "publisher": "OpenAI",
+    "tier": 1,
+    "checkedAt": "2026-09-16",
+    "evidenceType": "web-page",
+    "url": "https://learn.chatgpt.com/docs/developer-commands?surface=cli"
   }
 ]

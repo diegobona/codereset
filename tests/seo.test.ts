@@ -448,6 +448,13 @@ describe("published route manifest", () => {
     expect(new Set(manifestUrls).size).toBe(manifestUrls.length);
     expect(new Set(sitemapUrls).size).toBe(sitemapUrls.length);
     expect(new Set(sitemapUrls)).toEqual(new Set(manifestUrls));
+    expect(publishedRoutes).toContainEqual({
+      pathname: "/guides",
+      kind: "collection",
+      slug: null,
+      lastModified: "2026-09-16",
+      indexable: true,
+    });
   });
 
   it("is the source of truth for closed guide static params", async () => {

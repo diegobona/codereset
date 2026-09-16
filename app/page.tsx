@@ -108,6 +108,9 @@ export default function HomePage() {
           <Link href="/reset-time">
             Convert a Codex reset time <ArrowRight size={16} />
           </Link>
+          <Link href="/guides">
+            Browse all guides <ArrowRight size={16} />
+          </Link>
         </nav>
       </section>
 

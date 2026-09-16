@@ -2,7 +2,7 @@ import { guides } from "@/lib/content";
 
 export type PublishedRoute = {
   pathname: string;
-  kind: "home" | "guide" | "privacy" | "trust" | "tool";
+  kind: "collection" | "home" | "guide" | "privacy" | "trust" | "tool";
   slug: string | null;
   lastModified: string;
   indexable: boolean;
@@ -21,6 +21,13 @@ const routeCandidates: PublishedRoute[] = [
     kind: "privacy",
     slug: null,
     lastModified: "2026-09-15",
+    indexable: true,
+  },
+  {
+    pathname: "/guides",
+    kind: "collection",
+    slug: null,
+    lastModified: "2026-09-16",
     indexable: true,
   },
   {
@@ -90,6 +97,13 @@ function validatePublishedRoutes(routes: PublishedRoute[]) {
         throw new Error(
           "The privacy route must use pathname /privacy and a null slug",
         );
+      }
+      continue;
+    }
+
+    if (route.kind === "collection") {
+      if (route.pathname !== "/guides" || route.slug !== null) {
+        throw new Error(`Invalid collection route: ${route.pathname}`);
       }
       continue;
     }
