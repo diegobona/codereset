@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
     "test": "vitest run",
+    "brand:generate": "node scripts/generate-brand-assets.mjs",
     "content:check": "vite-node scripts/validate-content.mjs",
     "seo:check": "npm run build && node scripts/validate-export.mjs",
     "analytics:smoke": "node scripts/verify-analytics-endpoint.mjs"

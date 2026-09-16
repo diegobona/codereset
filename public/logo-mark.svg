@@ -1,4 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="logo-title">
+  <title id="logo-title">CodeReset</title>
   <rect x="2" y="2" width="60" height="60" rx="14" fill="#c7ff3c"/>
   <path d="M48 21A21 21 0 1 0 50 43" fill="none" stroke="#10120f" stroke-width="6" stroke-linecap="square"/>
   <path d="M44 38l10 5-9 8z" fill="#10120f"/>
